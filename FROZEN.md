@@ -107,8 +107,11 @@ fallback pool), this is comfortable headroom. Three rate-limit mitigations
 are sufficient; we do NOT need to ship a shared key.
 
 > **HACKATHON.md "if you get rate-limited" runbook:** if a `429` ever appears
-> in chat, fall back to `OFFLINE=1` for the demo. The envelope inspector still
-> shows real A2UI surfaces from `public/offline-envelopes.json`.
+> in chat, fall back to `OFFLINE=1` for the demo. The `/fixed` endpoint then
+> paints a real A2UI surface from a built-in canned sample
+> (`agent/src/offline_sample.py` — a Tesla Q3 FY24 dashboard), no Gemini call
+> and no key. It shows the sample, not your uploaded PDF; `/dynamic` and
+> `/legal` still require a key.
 
 ## Pinned versions (JavaScript)
 
@@ -117,40 +120,72 @@ are sufficient; we do NOT need to ship a shared key.
 | `@copilotkit/react-core` | `1.57.4` (exact) | No caret |
 | `@copilotkit/runtime` | `1.57.4` (exact) | No caret |
 | `@copilotkit/a2ui-renderer` | `1.57.4` (exact) | No caret |
-| `@copilotkit/react-ui` | `1.57.4` (exact) | No caret; added to host the a2ui-pdf-analyst example |
-| `@ag-ui/client` | `^0.0.53` | Added for the a2ui-pdf-analyst example (AG-UI client transport) |
-| `pdfjs-dist` | `^4.10.38` | Added for the a2ui-pdf-analyst example (client-side PDF parse) |
+| `@copilotkit/react-ui` | `1.57.4` (exact) | No caret; chat UI for the pdf-analyst default demo |
+| `@ag-ui/client` | `^0.0.53` | AG-UI client transport for the pdf-analyst default demo (`HttpAgent`) |
+| `@ag-ui/core` | `^0.0.53` | AG-UI core types; added alongside `@ag-ui/client` for the pdf-analyst default demo |
+| `pdfjs-dist` | `^4.10.38` | Client-side PDF parse for the pdf-analyst default demo |
+| `recharts` | `^3.7.0` | Charts rendered by the A2UI catalog (bar/line/donut/scatter) |
 | `next` | `16.1.6` (exact) | — |
 | `react` / `react-dom` | `19.2.4` (exact) | Tightened from caret in A5 |
 | `@ag-ui/a2a-middleware` | (added in Workstream B) | — |
 
-> **2026-05-29: bumped to 1.57.4 to host the a2ui-pdf-analyst example (owner
-> sign-off; Notion plan).** The three `@copilotkit/*` pins moved `1.56.5 →
-> 1.57.4` and `@copilotkit/react-ui`, `@ag-ui/client`, and `pdfjs-dist` were
-> added. A Phase-0 spike confirmed forced `tool_choice` still works on Gemini's
-> native SDK at this version, so the Gemini default (below) is unchanged.
+> **2026-05-29: bumped to 1.57.4 for the pdf-analyst demo (owner sign-off;
+> Notion plan).** The three `@copilotkit/*` pins moved `1.56.5 → 1.57.4` and
+> `@copilotkit/react-ui`, `@ag-ui/client`, `@ag-ui/core`, `pdfjs-dist`, and
+> `recharts` were added. A Phase-0 spike confirmed forced `tool_choice` still
+> works on Gemini's native SDK at this version, so the Gemini default (below)
+> is unchanged.
+
+> **pdf-analyst is now the default demo (was an example).** It used to live
+> under `other-examples/a2ui-pdf-analyst/`; the merge promoted it to the repo
+> root (web routes `/`, `/fixed`, `/dynamic`, `/catalog`) and archived the
+> previous default (PortKit) to `other-examples/portkit/`. There is a **single
+> root `pnpm-lock.yaml`** after the merge — the example's separate lockfile
+> was folded in.
 
 ## Pinned versions (Python)
 
 | Package | Pin | Notes |
 |---|---|---|
-| `langchain` | `1.2.15` | — |
-| `langgraph` | `1.1.6` | — |
-| `langgraph-cli[inmem]` | `0.4.21` | — |
+| `langchain` | `1.3.1` | Re-pinned exact 2026-06-04 (was `1.2.15`). Floated up when pdf-analyst's agent `pyproject.toml` (which used `>=` floors) was adopted as the root agent in Phase 2; re-pinned to the resolved version with owner sign-off. |
+| `langchain-core` | `1.4.0` | Pinned exact 2026-06-04 alongside the `langchain`/`langgraph` re-pin. |
+| `langgraph` | `1.2.1` | Re-pinned exact 2026-06-04 (was `1.1.6`); see the `langchain` note. |
+| `langgraph-cli[inmem]` | `0.4.21` | Only used by the archived PortKit agent (`other-examples/portkit/`). The default agent now serves over FastAPI — see "Serving" below. |
 | `langchain-openai` | `1.1.9` | Drives the OpenAI swap path and the documented Gemini OpenAI-compat fallback |
 | `langchain-anthropic` | `1.4.1` | For the Anthropic swap matrix |
-| `copilotkit` | `>=0.1.90` | Python SDK; floor raised 2026-05-29 for the a2ui-pdf-analyst example |
-| `ag-ui-langgraph` | `>=0.0.36` | Added 2026-05-29 for the a2ui-pdf-analyst example (AG-UI ↔ LangGraph bridge) |
+| `copilotkit` | `>=0.1.90` | Python SDK; floor raised 2026-05-29 for the pdf-analyst default demo |
+| `ag-ui-langgraph` | `>=0.0.36` | AG-UI ↔ LangGraph bridge; powers the FastAPI endpoints (`add_langgraph_fastapi_endpoint`) for the pdf-analyst default demo |
+| `uvicorn` | (via FastAPI) | ASGI server the default agent runs under (`uvicorn main:app --port 8123`) |
 | `openai` | `1.109.1` | Transitive (used by langchain-openai) |
 
-`uv.lock` is committed and authoritative.
+`agent/uv.lock` is committed and authoritative. `pnpm verify-pins` asserts the
+`langchain` / `langchain-core` / `langgraph` versions above against it (not
+just the JS pins).
+
+## Serving
+
+The default agent (`agent/main.py`) is a **FastAPI app** run with
+`uvicorn main:app --port 8123` (`pnpm dev:agent` → `scripts/run-agent.sh`).
+It mounts three AG-UI ↔ LangGraph endpoints — `/fixed`, `/dynamic`, `/legal`
+— via `ag_ui_langgraph.add_langgraph_fastapi_endpoint`. The Docker/prod path
+is this same native FastAPI app.
+
+The old **langgraph-cli** serving path (`langgraph dev` / `langgraph.json` /
+the root `serve.py` AG-UI wrapper) belonged to the PortKit default and now
+applies only to the archived demo under `other-examples/portkit/` (which
+ships its own `agent/langgraph.json`). The root `serve.py` is a PortKit-era
+artifact (it imports a `graph` symbol that the FastAPI `agent/main.py` no
+longer exports) and is not on the pdf-analyst serving path.
 
 ## Package manager
 
 | Layer | Manager | Lockfile |
 |---|---|---|
-| JavaScript | pnpm | `pnpm-lock.yaml` (committed) |
+| JavaScript | pnpm | `pnpm-lock.yaml` (committed) — a **single root lockfile** after the pdf-analyst merge |
 | Python | uv | `agent/uv.lock` (committed) |
+
+The archived PortKit demo carries its own `other-examples/portkit/agent/uv.lock`
+for standalone use, but it is not installed by the root project.
 
 ## Vendoring
 
