@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel Campus — UI Kit & Simulation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --primary:#F4E4C1; --ink:#1B2A4A; --outline:#0E1626;
+    --tertiary:#F0596A; --awning:#E8503C;
+    --accent:#FFC94D; --accent-hi:#FFD970; --on-accent:#2A1A00;
+    --sky-top:#1C5FB0; --sky-bottom:#5AB6E8;
+    --success:#5FBF6A; --ground:#7E8A99; --info:#5AB6E8;
+    --panel:#F4E4C1; --panel-line:#E2CFA4; --panel-dk:#E9D7B0;
+    --sp-1:8px; --sp-2:16px; --sp-3:24px; --sp-4:32px; --sp-5:48px; --sp-6:64px;
+    --sh:5px 5px 0 var(--outline); --sh-lg:8px 8px 0 var(--outline);
+    --bd:4px solid var(--outline); --bd3:3px solid var(--outline);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{image-rendering:pixelated;image-rendering:crisp-edges;}
+  body{background:#163E72;background-image:linear-gradient(#1C5FB0,#163E72);
+    color:var(--ink);font-family:'VT323',monospace;font-size:18px;line-height:1.4;
+    padding:var(--sp-5) var(--sp-3);}
+  .page{max-width:920px;margin-inline:auto;}
+  .press{font-family:'Press Start 2P',monospace;}
+  .silk{font-family:'Silkscreen',sans-serif;font-weight:700;letter-spacing:.04em;}
+
+  h1.kit{font-family:'Press Start 2P';font-size:26px;color:var(--primary);text-align:center;
+    text-shadow:-3px 0 var(--outline),3px 0 var(--outline),0 -3px var(--outline),0 3px var(--outline),0 6px 0 rgba(14,22,38,.3);
+    margin-bottom:var(--sp-1);}
+  .kit-sub{text-align:center;color:var(--primary);font-size:22px;text-shadow:2px 2px 0 var(--outline);
+    margin-bottom:var(--sp-5);}
+
+  /* section header */
+  .sec{margin:var(--sp-6) 0 var(--sp-3);display:flex;align-items:center;gap:var(--sp-2);}
+  .sec h2{font-family:'Press Start 2P';font-size:14px;color:var(--primary);text-shadow:2px 2px 0 var(--outline);white-space:nowrap;}
+  .sec .stripe{flex:1;height:10px;border:var(--bd3);
+    background:repeating-linear-gradient(90deg,var(--awning) 0 14px,#fff 14px 28px);}
+
+  /* generic panel */
+  .panel{background:var(--panel);border:var(--bd);box-shadow:var(--sh);padding:var(--sp-3);}
+  .row{display:grid;gap:var(--sp-3);grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}
+  .label{font-family:'Silkscreen';font-weight:700;font-size:11px;letter-spacing:.06em;color:#5A6685;
+    text-transform:uppercase;margin-bottom:6px;}
+
+  /* ---- BUTTONS ---- */
+  .btn{font-family:'Press Start 2P';font-size:11px;border:var(--bd);padding:13px 16px;cursor:pointer;
+    box-shadow:var(--sh);transition:transform .06s steps(1),box-shadow .06s steps(1),background .1s;
+    display:inline-flex;align-items:center;gap:8px;}
+  .btn:active{transform:translate(5px,5px);box-shadow:0 0 0 var(--outline);}
+  .btn:focus-visible{outline:4px solid var(--accent);outline-offset:3px;}
+  .btn.primary{background:var(--tertiary);color:#fff;}
+  .btn.primary:hover{background:var(--awning);}
+  .btn.secondary{background:var(--accent);color:var(--on-accent);}
+  .btn.secondary:hover{background:var(--accent-hi);}
+  .btn.ghost{background:var(--panel);color:var(--ink);}
+  .btn.ghost:hover{background:var(--panel-dk);}
+  .btn:disabled{background:var(--ground);color:#E7ECF2;cursor:not-allowed;box-shadow:var(--sh);transform:none;}
+  .btn-stack{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center;}
+
+  /* ---- BADGES / TAGS ---- */
+  .tag{font-family:'Silkscreen';font-weight:700;font-size:11px;padding:5px 9px;border:var(--bd3);
+    display:inline-block;letter-spacing:.04em;}
+  .tag.gold{background:var(--accent);color:var(--on-accent);}
+  .tag.green{background:var(--success);color:#0C2A10;}
+  .tag.red{background:var(--tertiary);color:#fff;}
+  .tag.grey{background:var(--ground);color:#fff;}
+  .tag.blue{background:var(--info);color:#0A2E4A;}
+  .sticker{font-family:'Press Start 2P';font-size:13px;background:var(--tertiary);color:#fff;
+    padding:10px 14px;border:var(--bd);box-shadow:var(--sh);display:inline-flex;gap:8px;transform:rotate(-3deg);}
+  .sticker b{background:#fff;color:var(--outline);padding:2px 6px;}
+
+  /* ---- HP / XP BARS ---- */
+  .bar-lbl{display:flex;justify-content:space-between;font-family:'Silkscreen';font-weight:700;
+    font-size:11px;color:var(--ink);letter-spacing:.04em;margin-bottom:6px;}
+  .track{display:flex;gap:3px;height:18px;background:var(--outline);padding:3px;}
+  .seg{flex:1;background:#33405E;}
+  .seg.on{background:var(--success);}
+  .seg.on.gold{background:var(--accent);}
+  .seg.on.red{background:var(--tertiary);}
+  .smooth{height:18px;background:var(--outline);padding:3px;}
+  .smooth .fill{height:100%;background:var(--accent);width:72%;}
+
+  /* ---- CHIPS ---- */
+  .chip{display:inline-flex;align-items:center;gap:8px;font-family:'Silkscreen';font-weight:700;
+    font-size:14px;padding:9px 13px;border:var(--bd);box-shadow:var(--sh);}
+  .chip.xp{background:#fff;color:var(--ink);}
+  .chip.coin{background:var(--accent);color:var(--on-accent);}
+  .chip.streak{background:var(--success);color:#0C2A10;}
+  .chip.heart{background:var(--tertiary);color:#fff;}
+
+  /* ---- TOAST ---- */
+  .toast{display:flex;align-items:center;gap:12px;border:var(--bd);box-shadow:var(--sh);
+    padding:12px 16px;font-family:'Silkscreen';font-weight:700;font-size:13px;}
+  .toast .ic{font-size:22px;}
+  .toast.win{background:var(--success);color:#0C2A10;}
+  .toast.lose{background:var(--tertiary);color:#fff;}
+  .toast.tip{background:var(--accent);color:var(--on-accent);}
+
+  /* ---- DIALOG (mini) ---- */
+  .dlg{border:var(--bd);box-shadow:var(--sh);background:var(--panel);}
+  .dlg .bar{display:flex;align-items:center;gap:10px;background:var(--tertiary);border-bottom:var(--bd);padding:10px 14px;}
+  .dlg .face{width:30px;height:30px;border:var(--bd3);background:#9CCBE8;display:grid;place-items:center;font-size:16px;}
+  .dlg .who{font-family:'Press Start 2P';font-size:11px;color:#fff;}
+  .dlg .bd{padding:14px;font-size:21px;color:var(--ink);}
+
+  /* ---- INPUT / SLIDER (pixel restyle) ---- */
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:14px;
+    background:var(--outline);border:var(--bd3);cursor:pointer;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:22px;
+    background:var(--accent);border:var(--bd3);cursor:pointer;}
+  input[type=range]::-moz-range-thumb{width:16px;height:22px;background:var(--accent);border:var(--bd3);cursor:pointer;border-radius:0;}
+  .sliderbox{display:grid;grid-template-columns:74px 1fr 56px;align-items:center;gap:12px;margin-bottom:14px;}
+  .sliderbox .nm{font-family:'Silkscreen';font-weight:700;font-size:11px;color:var(--ink);letter-spacing:.04em;}
+  .sliderbox .val{font-family:'Press Start 2P';font-size:11px;color:var(--awning);text-align:right;}
+
+  /* ---- TIMER RING (segmented) ---- */
+  .timer{display:flex;gap:4px;}
+  .timer i{width:14px;height:24px;background:var(--success);border:var(--bd3);display:block;}
+  .timer i.spent{background:#33405E;}
+
+  /* ============ SIMULATION ============ */
+  .sim{border:var(--bd);box-shadow:var(--sh-lg);background:var(--panel);}
+  .sim .top{display:flex;align-items:center;justify-content:space-between;
+    background:var(--ink);border-bottom:var(--bd);padding:10px 14px;}
+  .sim .top .t{font-family:'Press Start 2P';font-size:12px;color:var(--primary);}
+  .sim .top .lv{font-family:'Silkscreen';font-weight:700;font-size:11px;color:var(--accent);}
+  .sim .stagebox{position:relative;background:#0E1626;}
+  #sim{display:block;width:100%;height:300px;image-rendering:pixelated;image-rendering:crisp-edges;}
+  .readout{position:absolute;top:10px;left:10px;display:flex;gap:8px;flex-wrap:wrap;}
+  .readout .r{font-family:'Silkscreen';font-weight:700;font-size:11px;background:rgba(14,22,38,.78);
+    color:var(--primary);padding:5px 8px;border:var(--bd3);}
+  .readout .r b{color:var(--accent);}
+  .sim .controls{padding:var(--sp-3);background:var(--panel);}
+  .sim .cta{display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-top:var(--sp-1);}
+  .verdict{font-family:'Press Start 2P';font-size:11px;padding:10px 12px;border:var(--bd);margin-top:var(--sp-2);display:none;}
+  .verdict.show{display:block;}
+  .verdict.hit{background:var(--success);color:#0C2A10;}
+  .verdict.miss{background:var(--tertiary);color:#fff;}
+
+  .hint{color:var(--primary);font-size:18px;text-shadow:1px 1px 0 var(--outline);margin-top:var(--sp-2);text-align:center;}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1 class="kit">PIXEL CAMPUS UI KIT</h1>
+  <p class="kit-sub">Drop-in 16-bit components + a live physics sim</p>
+
+  <!-- ============ SIMULATION (centerpiece) ============ -->
+  <div class="sec"><h2>SIMULATION : TRAJECTORY LAB</h2><div class="stripe"></div></div>
+  <div class="sim">
+    <div class="top"><span class="t">🚀 LAUNCH LAB</span><span class="lv">PHYSICS · LVL 2</span></div>
+    <div class="stagebox">
+      <canvas id="sim" width="640" height="300"></canvas>
+      <div class="readout">
+        <span class="r">ANGLE <b id="rA">45°</b></span>
+        <span class="r">POWER <b id="rP">60</b></span>
+        <span class="r">GRAVITY <b id="rG">9.8</b></span>
+        <span class="r">RANGE <b id="rR">0m</b></span>
+        <span class="r">PEAK <b id="rH">0m</b></span>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="sliderbox">
+        <span class="nm">ANGLE</span>
+        <input type="range" id="sAngle" min="10" max="80" step="1" value="45">
+        <span class="val" id="vAngle">45°</span>
+      </div>
+      <div class="sliderbox">
+        <span class="nm">POWER</span>
+        <input type="range" id="sPower" min="20" max="100" step="1" value="60">
+        <span class="val" id="vPower">60</span>
+      </div>
+      <div class="sliderbox">
+        <span class="nm">GRAVITY</span>
+        <input type="range" id="sGrav" min="2" max="20" step="1" value="10">
+        <span class="val" id="vGrav">10</span>
+      </div>
+      <div class="cta">
+        <button class="btn primary" id="fire">▶ FIRE</button>
+        <button class="btn secondary" id="trace">◌ TRACE</button>
+        <button class="btn ghost" id="reset">↺ RESET</button>
+      </div>
+      <div class="verdict" id="verdict"></div>
+      <p class="hint">Hit the 🎯 target. Trace shows the predicted arc.</p>
+    </div>
+  </div>
+
+  <!-- ============ BUTTONS ============ -->
+  <div class="sec"><h2>BUTTONS</h2><div class="stripe"></div></div>
+  <div class="panel">
+    <div class="btn-stack">
+      <button class="btn primary">▶ PLAY</button>
+      <button class="btn secondary">★ CLAIM</button>
+      <button class="btn ghost">↺ RETRY</button>
+      <button class="btn primary" disabled>🔒 LOCKED</button>
+    </div>
+  </div>
+
+  <!-- ============ BADGES & STICKERS ============ -->
+  <div class="sec"><h2>BADGES &amp; TAGS</h2><div class="stripe"></div></div>
+  <div class="panel">
+    <div class="btn-stack" style="margin-bottom:18px;">
+      <span class="tag gold">LVL 3</span>
+      <span class="tag green">CLEARED</span>
+      <span class="tag red">NEW</span>
+      <span class="tag grey">LOCKED</span>
+      <span class="tag blue">BONUS</span>
+    </div>
+    <div class="btn-stack">
+      <span class="sticker"><b>NEW</b> QUEST</span>
+      <span class="sticker" style="background:var(--success);transform:rotate(2deg);"><b>+50</b> XP</span>
+    </div>
+  </div>
+
+  <!-- ============ HUD CHIPS ============ -->
+  <div class="sec"><h2>HUD CHIPS</h2><div class="stripe"></div></div>
+  <div class="panel">
+    <div class="btn-stack">
+      <span class="chip xp">⭐ 1,240 XP</span>
+      <span class="chip coin">🪙 88</span>
+      <span class="chip streak">🔥 6-DAY</span>
+      <span class="chip heart">❤ ❤ ❤</span>
+    </div>
+  </div>
+
+  <!-- ============ PROGRESS BARS ============ -->
+  <div class="sec"><h2>PROGRESS BARS</h2><div class="stripe"></div></div>
+  <div class="row">
+    <div class="panel">
+      <div class="bar-lbl"><span>HP — SEGMENTED</span><span>6/10</span></div>
+      <div class="track" id="hp"></div>
+    </div>
+    <div class="panel">
+      <div class="bar-lbl"><span>XP — SMOOTH</span><span>72%</span></div>
+      <div class="smooth"><div class="fill"></div></div>
+    </div>
+    <div class="panel">
+      <div class="bar-lbl"><span>STREAK — GOLD</span><span>9/10</span></div>
+      <div class="track" id="streakbar"></div>
+    </div>
+  </div>
+
+  <!-- ============ TOASTS ============ -->
+  <div class="sec"><h2>TOASTS</h2><div class="stripe"></div></div>
+  <div class="row">
+    <div class="toast win"><span class="ic">✓</span> LEVEL CLEARED · +120 XP</div>
+    <div class="toast tip"><span class="ic">💡</span> HINT: WATCH THE INSIDE TERM</div>
+    <div class="toast lose"><span class="ic">✗</span> OUT OF LIVES — RETRY?</div>
+  </div>
+
+  <!-- ============ DIALOG + SLIDERS ============ -->
+  <div class="sec"><h2>DIALOG &amp; CONTROLS</h2><div class="stripe"></div></div>
+  <div class="row">
+    <div class="dlg">
+      <div class="bar"><span class="face">🦉</span><span class="who">PROF. PIXEL</span></div>
+      <div class="bd">Nice arc! Now try the same range with <b>half</b> the power. What angle do you need?</div>
+    </div>
+    <div class="panel">
+      <div class="sliderbox"><span class="nm">VOLUME</span><input type="range" min="0" max="100" value="70"><span class="val">70</span></div>
+      <div class="sliderbox"><span class="nm">SPEED</span><input type="range" min="1" max="5" value="3"><span class="val">3×</span></div>
+      <div class="label" style="margin-top:4px;">QUIZ TIMER</div>
+      <div class="timer" id="timer"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ---- fill bars ---- */
+function fillTrack(id,on,cls){const t=document.getElementById(id);for(let i=0;i<10;i++){const s=document.createElement('div');s.className='seg'+(i<on?(' on'+(cls?' '+cls:'')):'');t.appendChild(s);}}
+fillTrack('hp',6); fillTrack('streakbar',9,'gold');
+const tm=document.getElementById('timer');for(let i=0;i<10;i++){const b=document.createElement('i');if(i>=7)b.className='spent';tm.appendChild(b);}
+
+/* ============ TRAJECTORY SIMULATION ============ */
+const cv=document.getElementById('sim'), ctx=cv.getContext('2d');
+const W=cv.width, H=cv.height, GND=H-24;
+const sA=document.getElementById('sAngle'), sP=document.getElementById('sPower'), sG=document.getElementById('sGrav');
+const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+let target={x:0,r:18}, showTrace=false, anim=null, ball=null, peak=0;
+
+const px=(x,y,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),w,h);};
+function rndTarget(){target.x=320+Math.random()*(W-380);}
+rndTarget();
+
+function params(){
+  const ang=+sA.value, pow=+sP.value, g=+sG.value;
+  const rad=ang*Math.PI/180, v=pow*0.42;          // scaled launch speed
+  const vx=Math.cos(rad)*v, vy=Math.sin(rad)*v;
+  return {ang,pow,g,vx,vy};
+}
+function predict(){ // returns {pts, range, peak}
+  const {vx,vy,g}=params(); const pts=[]; let x=24,y=GND,t=0,pk=0;
+  while(true){
+    const cx=24+vx*t, cy=GND-(vy*t-0.5*g*t*t);
+    if(cy>GND && t>0.2) break;
+    pts.push([cx,cy]); pk=Math.max(pk,GND-cy);
+    t+=0.08; if(cx>W+40||t>30) break;
+  }
+  const range=pts.length?pts[pts.length-1][0]-24:0;
+  return {pts,range:Math.max(0,Math.round(range/4)),peak:Math.round(pk/4)};
+}
+
+function cannon(){ // little pixel cannon at launch point
+  px(8,GND-10,26,12,'#345F92'); px(8,GND-12,26,2,'#0E1626');
+  const {ang}=params(), rad=ang*Math.PI/180;
+  ctx.save();ctx.translate(20,GND-6);ctx.rotate(-rad);
+  px(0,-4,22,8,'#C8432E'); px(0,-5,22,1,'#0E1626'); px(0,4,22,1,'#0E1626');
+  ctx.restore();
+}
+function drawScene(traj){
+  ctx.imageSmoothingEnabled=false;
+  // sky bands
+  px(0,0,W,GND*0.5,'#1C5FB0'); px(0,GND*0.5,W,GND*0.5,'#2E78C0');
+  // stars/clouds dots
+  ctx.fillStyle='#3A7EC0';for(let i=0;i<14;i++)ctx.fillRect((i*53)%W,18+((i*37)%70),3,3);
+  // ground
+  px(0,GND,W,2,'#0E1626'); px(0,GND+2,W,H-GND,'#7E8A99');
+  for(let i=0;i<W;i+=8)px(i,GND+6,4,2,'#6B7686');
+  // target (flag pole + flag)
+  px(target.x-2,GND-40,4,40,'#0E1626');
+  px(target.x+2,GND-40,18,12,'#F0596A'); px(target.x+2,GND-40,18,1,'#fff');
+  // bullseye on ground
+  ctx.fillStyle='#FFC94D';ctx.beginPath();ctx.arc(target.x,GND,target.r,0,7);ctx.fill();
+  ctx.fillStyle='#E8503C';ctx.beginPath();ctx.arc(target.x,GND,target.r-7,0,7);ctx.fill();
+  // trace
+  if(traj&&showTrace){ctx.fillStyle='#FFD970';traj.pts.forEach((p,i)=>{if(i%2===0)ctx.fillRect(Math.round(p[0]),Math.round(p[1]),3,3);});}
+  cannon();
+  // ball
+  if(ball){px(ball.x-3,ball.y-3,6,6,'#0E1626');px(ball.x-2,ball.y-2,4,4,'#F4E4C1');}
+}
+function readout(p){const pr=predict();
+  document.getElementById('rA').textContent=p.ang+'°';
+  document.getElementById('rP').textContent=p.pow;
+  document.getElementById('rG').textContent=(p.g).toFixed(1);
+  document.getElementById('rR').textContent=pr.range+'m';
+  document.getElementById('rH').textContent=(ball?Math.round(peak/4):pr.peak)+'m';
+}
+function refresh(){const p=params();
+  document.getElementById('vAngle').textContent=p.ang+'°';
+  document.getElementById('vPower').textContent=p.pow;
+  document.getElementById('vGrav').textContent=(p.g).toFixed(0);
+  drawScene(predict()); readout(p);
+}
+[sA,sP,sG].forEach(s=>s.addEventListener('input',()=>{if(!anim){ball=null;refresh();}}));
+
+document.getElementById('trace').addEventListener('click',()=>{showTrace=!showTrace;refresh();});
+document.getElementById('reset').addEventListener('click',()=>{cancelAnimationFrame(anim);anim=null;ball=null;rndTarget();
+  document.getElementById('verdict').className='verdict';refresh();});
+
+document.getElementById('fire').addEventListener('click',()=>{
+  cancelAnimationFrame(anim); const {vx,vy,g}=params(); peak=0;
+  const v=document.getElementById('verdict'); v.className='verdict';
+  let t=0; ball={x:24,y:GND};
+  if(reduce){ // no animation: jump to landing
+    const pr=predict(); ball={x:24+pr.range*4,y:GND}; settle(); return;
+  }
+  function step(){
+    t+=0.08; ball.x=24+vx*t; ball.y=GND-(vy*t-0.5*g*t*t);
+    peak=Math.max(peak,GND-ball.y);
+    if(ball.y>=GND&&t>0.2){ball.y=GND;settle();return;}
+    drawScene(predict()); readout(params());
+    if(ball.x>W+20){settle();return;}
+    anim=requestAnimationFrame(step);
+  }
+  anim=requestAnimationFrame(step);
+});
+function settle(){anim=null;drawScene(predict());readout(params());
+  const dist=Math.abs(ball.x-target.x); const v=document.getElementById('verdict');
+  if(dist<=target.r){v.className='verdict show hit';v.textContent='🎯 DIRECT HIT! +120 XP';}
+  else{v.className='verdict show miss';v.textContent='✗ MISSED BY '+Math.round(dist/4)+'m — ADJUST & RETRY';}
+}
+refresh();
+</script>
+</body>
+</html>
