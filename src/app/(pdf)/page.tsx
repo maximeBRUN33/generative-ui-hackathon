@@ -4,5 +4,5 @@ import { redirect } from "next/navigation";
  * /fixed workspace route (it needs the agent + surface pipeline mounted). The
  * old marketing landing is preserved at /overview. */
 export default function Home() {
-  redirect("/fixed");
+  redirect("/dynamic");
 }

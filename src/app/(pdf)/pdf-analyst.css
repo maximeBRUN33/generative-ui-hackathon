@@ -19,55 +19,59 @@
  * and the CopilotChat v2 styles are imported by this segment's layout.tsx.
  * ─────────────────────────────────────────────────────────────────────── */
 
+/* Pixel Campus palette mapped onto the shell tokens (see DESIGN.md). The sky
+ * is the backdrop; the workspace is a cream "level panel" with navy ink +
+ * thick navy outlines, coral primary, gold accent. Square corners + hard
+ * shadows are applied in pixel-campus.css. */
 .pdf-analyst-root {
   /* Surfaces */
-  --bg: #fafafc;
-  --bg-alt: #ededf5;
-  --surface: #ffffff;
-  --surface-soft: #f7f7f9;
-  --ink: #010507;
-  --ink-2: #2b2b2b;
-  --muted: #45454a;
-  --muted-2: #5a5a60;
-  --line: #dbdbe5;
-  --line-2: #e9e9ef;
+  --bg: #1c5fb0; /* sky-top — chrome backdrop */
+  --bg-alt: #2a6bbe;
+  --surface: #f7ecce; /* cream card */
+  --surface-soft: #e6d4a6; /* inset cream (plot bg, tracks) */
+  --ink: #1b2a4a; /* navy text */
+  --ink-2: #44557a;
+  --muted: #44557a;
+  --muted-2: #5a6a8a;
+  --line: #101a30; /* thick navy outline */
+  --line-2: #101a30;
 
-  /* Accents */
-  --lilac: #bec2ff;
-  --lilac-soft: #bec2ff33; /* 20% */
-  --lilac-softer: #bec2ff1a; /* 10% */
-  --mint: #85ecce;
-  --mint-soft: #85ecce4d; /* 30% */
-  --orange: #ffac4d;
-  --orange-soft: #ffac4d33;
-  --yellow: #fff388;
-  --red: #fa5f67;
+  /* Accents (gold = reward/hover, coral = primary/alert, green = success) */
+  --lilac: #ffc94d; /* gold */
+  --lilac-soft: #ffc94d4d;
+  --lilac-softer: #ffc94d26;
+  --mint: #5fbf6a; /* success green */
+  --mint-soft: #5fbf6a4d;
+  --orange: #f0596a; /* coral */
+  --orange-soft: #f0596a33;
+  --yellow: #ffc94d;
+  --red: #f0596a;
 
-  /* Brand gradient */
+  /* Brand gradient — arcade band */
   --brand-gradient: linear-gradient(
     90deg,
-    #bec2ff 0%,
-    #85ecce 45.67%,
-    #ffac4d 100%
+    #f0596a 0%,
+    #ffc94d 50%,
+    #5ab6e8 100%
   );
 
-  /* Type tokens */
-  --radius: 14px;
-  --radius-lg: 20px;
+  /* Type tokens — square corners */
+  --radius: 0px;
+  --radius-lg: 0px;
 
   background: var(--bg);
   color: var(--ink);
   font-family:
-    var(--font-plus-jakarta), -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  letter-spacing: -0.01em;
-  font-feature-settings: "ss01", "cv11";
+    var(--font-vt323), ui-monospace, monospace;
+  letter-spacing: 0;
+  font-feature-settings: normal;
+  image-rendering: pixelated;
 }
 
-/* Mono pills, code-like UI labels, button text per brand */
+/* HUD labels / overlines / pills — Silkscreen, the Pixel Campus HUD voice. */
 .pdf-analyst-root .mono {
-  font-family:
-    var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-silkscreen), ui-monospace, monospace;
+  letter-spacing: 0.04em;
 }
 
 /* ── Brand chrome ────────────────────────────────────────────── */

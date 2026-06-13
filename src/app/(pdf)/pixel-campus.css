@@ -4,6 +4,35 @@ cpk-web-inspector {
   display: none !important;
 }
 
+/* ── Pixel Campus applied to the GENERATED A2UI surfaces ──────────────────
+ * The token remap (pdf-analyst.css + theme.css) handles colors; this layer
+ * adds the structural 16-bit feel to every catalog widget at once: square
+ * corners, pixel heading/label fonts, thick navy outlines + hard offset
+ * shadows on the cream panels. Scoped to .a2ui-surface so it can't leak. */
+.a2ui-surface,
+.a2ui-surface * {
+  border-radius: 0 !important;
+}
+.a2ui-surface h1,
+.a2ui-surface h2,
+.a2ui-surface h3,
+.a2ui-surface .mono {
+  font-family: var(--font-silkscreen), ui-monospace, monospace !important;
+  letter-spacing: 0.02em;
+}
+/* Cream panels get a chunky navy outline + a hard (zero-blur) offset shadow. */
+.a2ui-surface [class*="bg-[var(--surface)]"] {
+  border: 3px solid var(--line) !important;
+  box-shadow: 6px 6px 0 var(--line);
+}
+.a2ui-surface svg,
+.a2ui-surface img {
+  image-rendering: pixelated;
+}
+.a2ui-surface input[type="range"] {
+  accent-color: var(--orange);
+}
+
 /* Pixel Campus — 16-bit design system (see DESIGN.md). Scoped to
  * .pixel-campus so it never touches the rest of the app. Hard edges, flat
  * offset shadows, square corners, pixelated rendering. */

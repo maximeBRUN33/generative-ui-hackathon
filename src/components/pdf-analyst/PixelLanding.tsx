@@ -9,6 +9,18 @@ import { extractPdfText } from "@/lib/pdf";
  * PDF drives the agent directly (addMessage + runAgent) — the same pattern
  * SurfaceCanvas uses for chip clicks — and the generated workspace replaces
  * this screen once the surface paints. Works in OFFLINE mode with no key. */
+/* A built-in sample lecture so "play the sample" generates a real surface even
+ * with no upload (the dynamic agent needs a document to compose from). */
+const SAMPLE_PROMPT = `Build me a study workspace from these lecture slides.
+
+[Document: Sample — Interest Rate Risk.pdf]
+Interest Rate Risk (Investments, Lecture 7).
+Bond prices move inversely to interest rates: when yields rise, the price of an existing bond falls. Price sensitivity to rate changes is larger when the maturity is longer, the coupon is lower, and the starting yield is lower.
+Macaulay duration is the weighted-average time to a bond's cash flows — a single measure of its effective maturity and rate sensitivity.
+Modified duration estimates the percentage price change for a small yield move: dB/B = -D* * dy.
+Convexity is the curvature of the price-yield relationship; it corrects duration's straight-line estimate, which under-predicts the price for large rate moves.
+Immunization matches the duration of assets to the liability (or investment horizon) so price risk and reinvestment risk offset, locking in a realized yield.`;
+
 export function PixelLanding({ agentId }: { agentId: string }) {
   const { agent } = useAgent({ agentId });
   const inputRef = useRef<HTMLInputElement>(null);
@@ -173,7 +185,7 @@ export function PixelLanding({ agentId }: { agentId: string }) {
             !busy && (
               <button
                 type="button"
-                onClick={() => send("Build my study workspace.")}
+                onClick={() => send(SAMPLE_PROMPT)}
                 className="pc-hud"
                 style={{ background: "transparent", color: "var(--pc-primary)", fontSize: "0.85rem", textDecoration: "underline", cursor: "pointer" }}
               >

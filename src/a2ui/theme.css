@@ -8,32 +8,33 @@
    tokens (the chrome around the chat) live in
    src/app/(pdf)/pdf-analyst.css. `pnpm theme:reset` reverts both.
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* Pixel Campus (see DESIGN.md): the generated surface is a cream "level
+ * panel" — navy ink, thick navy outlines, coral primary, gold accent, square
+ * corners, VT323 reading type. Hard offset shadows + pixel heading fonts are
+ * layered in pixel-campus.css (scoped to .a2ui-surface). */
 .a2ui-surface {
-  --background: #fafafc;
-  --foreground: #010507;
-  --card: #ffffff;
-  --primary: #010507;
+  --background: #e7d8ad;
+  --foreground: #1b2a4a;
+  --card: #f7ecce;
+  --primary: #f0596a;
   --primary-foreground: #ffffff;
-  --border: #dbdbe5;
-  --input: #dbdbe5;
-  --muted: #f0f0f4;
-  --muted-foreground: #57575b;
-  --accent: #bec2ff;
-  --accent-foreground: #010507;
-  --radius: 14px;
+  --border: #101a30;
+  --input: #101a30;
+  --muted: #e6d4a6;
+  --muted-foreground: #44557a;
+  --accent: #ffc94d;
+  --accent-foreground: #1b2a4a;
+  --radius: 0px;
 
-  font-family:
-    var(--font-plus-jakarta),
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif !important;
-  letter-spacing: -0.01em;
-  line-height: 1.5;
+  background: #e7d8ad;
+  font-family: var(--font-vt323), ui-monospace, monospace !important;
+  letter-spacing: 0;
+  line-height: 1.4;
   color: var(--foreground);
+  image-rendering: pixelated;
 }
 
 .a2ui-surface img {
   max-height: 32px;
-  border-radius: 6px;
+  border-radius: 0;
 }
