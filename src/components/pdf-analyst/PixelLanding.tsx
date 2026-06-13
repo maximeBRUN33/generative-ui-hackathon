@@ -252,15 +252,28 @@ export function PixelLanding({
         </div>
       </div>
 
-      {/* town ground strip */}
-      <div className="relative z-10" style={{ height: 96 }}>
-        {/* simple shopfronts */}
-        <div style={{ position: "absolute", bottom: 28, left: "8%", width: 90, height: 54, background: "var(--pc-building)", border: "4px solid var(--pc-outline)" }} />
-        <div style={{ position: "absolute", bottom: 70, left: "8%", width: 90, height: 16, background: "var(--pc-roof)", border: "4px solid var(--pc-outline)" }} />
-        <div style={{ position: "absolute", bottom: 28, right: "10%", width: 110, height: 60, background: "var(--pc-building)", border: "4px solid var(--pc-outline)" }} />
-        <div style={{ position: "absolute", bottom: 76, right: "10%", width: 110, height: 16, background: "var(--pc-roof)", border: "4px solid var(--pc-outline)" }} />
+      {/* town street — pixel shopfronts + students strolling with backpacks */}
+      <div className="relative z-10" style={{ height: 176 }}>
+        {/* shopfronts (sit on the sidewalk) */}
+        <Shopfront leftPct="5%" width={150} />
+        <Shopfront leftPct="39%" width={128} />
+        <Shopfront rightPct="6%" width={150} />
+
+        {/* sidewalk band */}
+        <div style={{ position: "absolute", bottom: 30, left: 0, right: 0, height: 20, background: "color-mix(in oklab, var(--pc-ground) 60%, #fff)", borderTop: "4px solid var(--pc-outline)" }} />
         {/* road */}
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 28, background: "var(--pc-ground)", borderTop: "4px solid var(--pc-outline)" }} />
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 30, background: "var(--pc-ground)", borderTop: "4px solid var(--pc-outline)" }} />
+
+        {/* students walking the sidewalk, each with a backpack */}
+        <div className="pc-walker" style={{ bottom: 48, animation: "pc-stroll 15s linear infinite" }}>
+          <div className="pc-bob"><PixelStudent shirt="var(--pc-coral)" pack="var(--pc-gold)" /></div>
+        </div>
+        <div className="pc-walker" style={{ bottom: 48, animation: "pc-stroll 21s linear infinite", animationDelay: "-7s" }}>
+          <div className="pc-bob"><PixelStudent shirt="var(--pc-success)" pack="var(--pc-coral)" hair="#101a30" /></div>
+        </div>
+        <div className="pc-walker" style={{ bottom: 48, animation: "pc-stroll-rev 25s linear infinite", animationDelay: "-4s" }}>
+          <div className="pc-bob"><PixelStudent shirt="var(--pc-sky-top)" pack="var(--pc-gold)" skin="#caa06f" /></div>
+        </div>
       </div>
 
       <input
@@ -270,6 +283,75 @@ export function PixelLanding({
         style={{ display: "none" }}
         onChange={(e) => void handleFile(e.target.files?.[0])}
       />
+    </div>
+  );
+}
+
+/* A pixel shopfront: facade + roof + striped market awning + two windows + a
+ * door. Anchored on the sidewalk (bottom: 50). Each shop is a "subject". */
+function Shopfront({
+  leftPct,
+  rightPct,
+  width = 150,
+}: {
+  leftPct?: string;
+  rightPct?: string;
+  width?: number;
+}) {
+  const out = "4px solid var(--pc-outline)";
+  return (
+    <div style={{ position: "absolute", bottom: 50, left: leftPct, right: rightPct, width, height: 110 }}>
+      {/* roof */}
+      <div style={{ position: "absolute", top: 0, left: -4, right: -4, height: 16, background: "var(--pc-roof)", border: out }} />
+      {/* facade */}
+      <div style={{ position: "absolute", top: 14, left: 0, right: 0, bottom: 0, background: "var(--pc-building)", border: out }} />
+      {/* windows */}
+      <div style={{ position: "absolute", top: 26, left: 12, width: 30, height: 24, background: "var(--pc-sky-bottom)", border: "3px solid var(--pc-outline)" }} />
+      <div style={{ position: "absolute", top: 26, right: 12, width: 30, height: 24, background: "var(--pc-sky-bottom)", border: "3px solid var(--pc-outline)" }} />
+      {/* striped awning */}
+      <div className="pc-awning-stripes" style={{ position: "absolute", top: 56, left: -4, right: -4, height: 16, border: "3px solid var(--pc-outline)" }} />
+      {/* door */}
+      <div style={{ position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)", width: 34, height: 44, background: "var(--pc-ink)", border: out }} />
+      {/* door knob */}
+      <div style={{ position: "absolute", bottom: 20, left: "calc(50% + 9px)", width: 6, height: 6, background: "var(--pc-coral)" }} />
+    </div>
+  );
+}
+
+/* A chunky 16-bit student with a backpack, built from outlined squares.
+ * Faces right; the parent .pc-walker handles the stroll (scaleX flips it). */
+function PixelStudent({
+  shirt,
+  pack,
+  skin = "#e8b88a",
+  hair = "#3a2a1a",
+  pants = "#22324f",
+}: {
+  shirt: string;
+  pack: string;
+  skin?: string;
+  hair?: string;
+  pants?: string;
+}) {
+  const out = "2px solid var(--pc-outline)";
+  return (
+    <div
+      aria-hidden
+      style={{ position: "relative", width: 30, height: 46, transform: "scale(1.35)", transformOrigin: "bottom center", imageRendering: "pixelated" }}
+    >
+      {/* backpack (behind the shoulders, to the left when facing right) */}
+      <div style={{ position: "absolute", left: 0, top: 17, width: 11, height: 17, background: pack, border: out }} />
+      {/* shoulder strap */}
+      <div style={{ position: "absolute", left: 9, top: 17, width: 4, height: 15, background: pack, border: out }} />
+      {/* head */}
+      <div style={{ position: "absolute", left: 9, top: 0, width: 13, height: 12, background: skin, border: out }} />
+      {/* hair cap */}
+      <div style={{ position: "absolute", left: 9, top: 0, width: 13, height: 5, background: hair }} />
+      {/* torso / shirt */}
+      <div style={{ position: "absolute", left: 7, top: 14, width: 15, height: 16, background: shirt, border: out }} />
+      {/* legs */}
+      <div style={{ position: "absolute", left: 8, top: 31, width: 6, height: 13, background: pants, border: out }} />
+      <div style={{ position: "absolute", left: 16, top: 31, width: 6, height: 13, background: pants, border: out }} />
     </div>
   );
 }

@@ -200,3 +200,59 @@ cpk-web-inspector {
     animation: none;
   }
 }
+
+/* ── Street scene: strolling pixel students + striped shop awnings ───────── */
+/* Red/white market awning, hard pixel stripes (no blur). */
+.pc-awning-stripes {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--pc-awning) 0,
+    var(--pc-awning) 11px,
+    var(--pc-cloud) 11px,
+    var(--pc-cloud) 22px
+  );
+}
+
+/* Students walk across the sidewalk and clip at the screen edges. */
+@keyframes pc-stroll {
+  from {
+    transform: translateX(-48px);
+  }
+  to {
+    transform: translateX(calc(100vw + 48px));
+  }
+}
+@keyframes pc-stroll-rev {
+  from {
+    transform: translateX(calc(100vw + 48px)) scaleX(-1);
+  }
+  to {
+    transform: translateX(-48px) scaleX(-1);
+  }
+}
+/* Tiny retro 2-step walk bob. */
+@keyframes pc-step {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+.pc-walker {
+  position: absolute;
+  will-change: transform;
+}
+.pc-bob {
+  animation: pc-step 0.45s steps(2) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pc-walker {
+    animation: none !important;
+    transform: translateX(20vw);
+  }
+  .pc-bob {
+    animation: none;
+  }
+}
