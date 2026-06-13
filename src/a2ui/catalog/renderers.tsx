@@ -1,7 +1,15 @@
 "use client";
 
 import { clsx } from "clsx";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import {
   Bar,
   BarChart as RBarChart,
@@ -1052,33 +1060,31 @@ const ChoiceChips = ({
 
 const Flashcard = ({
   props,
-}: RendererProps<{ front: string; back: string; hint?: string }>) => {
+}: RendererProps<{ front: string; back: string; hint?: string; emoji?: string }>) => {
   const [flipped, setFlipped] = useState(false);
   return (
     <button
       type="button"
       onClick={() => setFlipped((f) => !f)}
-      className="group relative w-full min-h-[150px] text-left rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-5 transition hover:border-[var(--ink-2)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+      className="group relative w-full min-h-[170px] text-center flex flex-col items-center justify-center gap-2 rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-5 transition hover:border-[var(--ink-2)]"
     >
-      <span className="mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)]">
-        {flipped ? "Answer" : "Term"} · tap to flip
-      </span>
+      {props.emoji && (
+        <span className="text-[40px] leading-none" aria-hidden>
+          {props.emoji}
+        </span>
+      )}
       {flipped ? (
-        <p className="mt-3 text-[15px] leading-snug text-[var(--ink)]">
+        <p className="text-[16px] leading-snug text-[var(--ink)]">
           {props.back}
         </p>
       ) : (
-        <>
-          <p className="mt-3 text-[17px] font-semibold leading-snug text-[var(--ink)]">
-            {props.front}
-          </p>
-          {props.hint && (
-            <p className="mt-2 text-[12.5px] italic text-[var(--ink-2)]">
-              Hint: {props.hint}
-            </p>
-          )}
-        </>
+        <p className="text-[18px] font-semibold leading-snug text-[var(--ink)]">
+          {props.front}
+        </p>
       )}
+      <span className="mt-1 mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)]">
+        {flipped ? "↻ tap to flip back" : "tap to learn ↦"}
+      </span>
     </button>
   );
 };
@@ -1662,6 +1668,722 @@ const FreeformUI = ({
   );
 };
 
+// ── GraphExplorer (math signature widget) ──────────────────────────────────
+// A safe math-expression evaluator. We compile "an expression in x + named
+// params" into a closure WITHOUT eval/Function — the agent supplies the
+// expression, so we parse a fixed grammar (recursive descent) instead of
+// trusting it as code. Supports + - * / ^, unary -, parens, the funcs below,
+// constants pi/e, the variable x, and any named parameter.
+type EvalScope = Record<string, number>;
+const MATH_FUNCS: Record<string, (a: number) => number> = {
+  sin: Math.sin,
+  cos: Math.cos,
+  tan: Math.tan,
+  exp: Math.exp,
+  ln: Math.log,
+  log: (x) => Math.log10(x),
+  sqrt: Math.sqrt,
+  abs: Math.abs,
+};
+const MATH_CONSTS: Record<string, number> = { pi: Math.PI, e: Math.E };
+
+function tokenizeExpr(s: string): string[] {
+  const out: string[] = [];
+  let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (/\s/.test(c)) {
+      i++;
+    } else if (/[0-9.]/.test(c)) {
+      let j = i + 1;
+      while (j < s.length && /[0-9.]/.test(s[j])) j++;
+      out.push(s.slice(i, j));
+      i = j;
+    } else if (/[a-zA-Z_]/.test(c)) {
+      let j = i + 1;
+      while (j < s.length && /[a-zA-Z0-9_]/.test(s[j])) j++;
+      out.push(s.slice(i, j));
+      i = j;
+    } else if ("+-*/^(),".includes(c)) {
+      out.push(c);
+      i++;
+    } else {
+      i++; // skip anything unexpected
+    }
+  }
+  return out;
+}
+
+type CompiledExpr = (scope: EvalScope) => number;
+
+function compileExpr(src: string): CompiledExpr {
+  const t = tokenizeExpr(src);
+  let p = 0;
+  const peek = () => t[p];
+  const next = () => t[p++];
+
+  function parseExpr(): CompiledExpr {
+    let left = parseTerm();
+    while (peek() === "+" || peek() === "-") {
+      const op = next();
+      const right = parseTerm();
+      const l = left;
+      left = op === "+" ? (s) => l(s) + right(s) : (s) => l(s) - right(s);
+    }
+    return left;
+  }
+  function parseTerm(): CompiledExpr {
+    let left = parsePower();
+    while (peek() === "*" || peek() === "/") {
+      const op = next();
+      const right = parsePower();
+      const l = left;
+      left = op === "*" ? (s) => l(s) * right(s) : (s) => l(s) / right(s);
+    }
+    return left;
+  }
+  function parsePower(): CompiledExpr {
+    const base = parseUnary();
+    if (peek() === "^") {
+      next();
+      const exp = parsePower(); // right-associative
+      return (s) => Math.pow(base(s), exp(s));
+    }
+    return base;
+  }
+  function parseUnary(): CompiledExpr {
+    if (peek() === "-") {
+      next();
+      const u = parseUnary();
+      return (s) => -u(s);
+    }
+    if (peek() === "+") {
+      next();
+      return parseUnary();
+    }
+    return parseAtom();
+  }
+  function parseAtom(): CompiledExpr {
+    const tok = next();
+    if (tok === undefined) return () => NaN;
+    if (tok === "(") {
+      const e = parseExpr();
+      if (peek() === ")") next();
+      return e;
+    }
+    if (/^[0-9.]/.test(tok)) {
+      const v = parseFloat(tok);
+      return () => v;
+    }
+    if (peek() === "(") {
+      next();
+      const arg = parseExpr();
+      if (peek() === ")") next();
+      const fn = MATH_FUNCS[tok];
+      return fn ? (s) => fn(arg(s)) : () => NaN;
+    }
+    if (tok in MATH_CONSTS) {
+      const v = MATH_CONSTS[tok];
+      return () => v;
+    }
+    return (s) => (tok in s ? s[tok] : NaN);
+  }
+
+  try {
+    return parseExpr();
+  } catch {
+    return () => NaN;
+  }
+}
+
+type GraphParam = {
+  name: string;
+  min: number;
+  max: number;
+  value: number;
+  step?: number;
+};
+
+const GraphExplorer = ({
+  props,
+}: RendererProps<{
+  title?: string;
+  expression: string;
+  params?: GraphParam[];
+  xRange?: number[];
+  yRange?: number[];
+  xLabel?: string;
+  yLabel?: string;
+}>) => {
+  const expr = props.expression || "x";
+  const compiled = useMemo(() => compileExpr(expr), [expr]);
+  const paramDefs = Array.isArray(props.params) ? props.params : [];
+  const [vals, setVals] = useState<EvalScope>(() =>
+    Object.fromEntries(paramDefs.map((p) => [p.name, p.value])),
+  );
+
+  const [xmin, xmax] =
+    Array.isArray(props.xRange) && props.xRange.length === 2
+      ? props.xRange
+      : [-5, 5];
+
+  // Sample the curve. Keep finite points; split into segments on gaps.
+  const W = 640;
+  const H = 300;
+  const PAD = 34;
+  const N = 200;
+  const pts: Array<{ x: number; y: number } | null> = [];
+  for (let i = 0; i <= N; i++) {
+    const x = xmin + ((xmax - xmin) * i) / N;
+    const y = compiled({ x, ...vals });
+    pts.push(Number.isFinite(y) ? { x, y } : null);
+  }
+  const finite = pts.filter(Boolean) as Array<{ x: number; y: number }>;
+  let [ymin, ymax] =
+    Array.isArray(props.yRange) && props.yRange.length === 2
+      ? props.yRange
+      : (() => {
+          if (!finite.length) return [-1, 1];
+          let lo = Infinity,
+            hi = -Infinity;
+          for (const pt of finite) {
+            if (pt.y < lo) lo = pt.y;
+            if (pt.y > hi) hi = pt.y;
+          }
+          if (lo === hi) {
+            lo -= 1;
+            hi += 1;
+          }
+          const pad = (hi - lo) * 0.1;
+          return [lo - pad, hi + pad];
+        })();
+  if (!(ymax > ymin)) {
+    ymin = -1;
+    ymax = 1;
+  }
+
+  const sx = (x: number) => PAD + ((x - xmin) / (xmax - xmin)) * (W - 2 * PAD);
+  const sy = (y: number) => H - PAD - ((y - ymin) / (ymax - ymin)) * (H - 2 * PAD);
+
+  // Build path with breaks on non-finite samples.
+  let d = "";
+  let penDown = false;
+  for (const pt of pts) {
+    if (!pt) {
+      penDown = false;
+      continue;
+    }
+    const X = sx(pt.x).toFixed(1);
+    const Y = sy(pt.y).toFixed(1);
+    d += `${penDown ? "L" : "M"}${X} ${Y} `;
+    penDown = true;
+  }
+
+  const showXAxis = ymin <= 0 && ymax >= 0;
+  const showYAxis = xmin <= 0 && xmax >= 0;
+
+  return (
+    <div className="rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-5">
+      <div className="flex items-center justify-between">
+        <span className="text-[14px] font-semibold text-[var(--ink)]">
+          {props.title || "Graph explorer"}
+        </span>
+        <span className="mono text-[12px] text-[var(--ink-2)]">
+          y = {expr}
+        </span>
+      </div>
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        width="100%"
+        className="mt-3"
+        role="img"
+        aria-label={`Graph of y = ${expr}`}
+      >
+        <rect
+          x={PAD}
+          y={PAD - 14}
+          width={W - 2 * PAD}
+          height={H - 2 * PAD + 20}
+          fill="var(--surface-soft)"
+          rx="8"
+        />
+        {showXAxis && (
+          <line
+            x1={PAD}
+            y1={sy(0)}
+            x2={W - PAD}
+            y2={sy(0)}
+            stroke="var(--line)"
+            strokeWidth="1.5"
+          />
+        )}
+        {showYAxis && (
+          <line
+            x1={sx(0)}
+            y1={PAD - 14}
+            x2={sx(0)}
+            y2={H - PAD + 6}
+            stroke="var(--line)"
+            strokeWidth="1.5"
+          />
+        )}
+        <path d={d} fill="none" stroke="var(--ink)" strokeWidth="2.5" />
+        <text
+          x={W - PAD}
+          y={H - PAD + 18}
+          textAnchor="end"
+          className="mono"
+          fontSize="11"
+          fill="var(--ink-2)"
+        >
+          {props.xLabel || "x"}
+        </text>
+      </svg>
+
+      {paramDefs.length > 0 && (
+        <div className="mt-3 flex flex-col gap-2.5">
+          {paramDefs.map((p) => (
+            <div key={p.name} className="flex items-center gap-3">
+              <span className="mono text-[12px] w-6 text-[var(--ink)]">
+                {p.name}
+              </span>
+              <input
+                type="range"
+                min={p.min}
+                max={p.max}
+                step={p.step ?? (p.max - p.min) / 100}
+                value={vals[p.name] ?? p.value}
+                onChange={(e) =>
+                  setVals((v) => ({ ...v, [p.name]: Number(e.target.value) }))
+                }
+                className="flex-1 accent-[var(--ink)]"
+              />
+              <span className="mono text-[12px] w-12 text-right text-[var(--ink-2)]">
+                {(vals[p.name] ?? p.value).toFixed(2)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── ConceptMap (lecture overview) ──────────────────────────────────────────
+type CMNode = { id: string; label: string; level?: number; group?: string };
+type CMEdge = { from: string; to: string; label?: string };
+
+const ConceptMap = ({
+  props,
+  dispatch,
+}: RendererProps<{ title?: string; nodes: CMNode[]; edges: CMEdge[] }>) => {
+  const nodes = Array.isArray(props.nodes) ? props.nodes : [];
+  const edges = Array.isArray(props.edges) ? props.edges : [];
+
+  // Layout: columns by `level` (fall back to declaration order). Within a
+  // column, stack nodes vertically and centre them.
+  const NODE_W = 150;
+  const NODE_H = 46;
+  const COL_GAP = 56;
+  const ROW_GAP = 18;
+  const PAD = 8;
+
+  const byLevel = new Map<number, CMNode[]>();
+  nodes.forEach((n, i) => {
+    const lvl = typeof n.level === "number" ? n.level : i;
+    if (!byLevel.has(lvl)) byLevel.set(lvl, []);
+    byLevel.get(lvl)!.push(n);
+  });
+  const levels = [...byLevel.keys()].sort((a, b) => a - b);
+  const maxRows = Math.max(1, ...[...byLevel.values()].map((v) => v.length));
+  const colW = NODE_W + COL_GAP;
+  const rowH = NODE_H + ROW_GAP;
+  const totalH = maxRows * rowH - ROW_GAP + 2 * PAD;
+  const totalW = levels.length * colW - COL_GAP + 2 * PAD;
+
+  const pos = new Map<string, { x: number; y: number }>();
+  levels.forEach((lvl, li) => {
+    const col = byLevel.get(lvl)!;
+    const colHeight = col.length * rowH - ROW_GAP;
+    const yStart = PAD + (totalH - 2 * PAD - colHeight) / 2;
+    col.forEach((n, ri) => {
+      pos.set(n.id, { x: PAD + li * colW, y: yStart + ri * rowH });
+    });
+  });
+
+  return (
+    <div className="rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-5">
+      {props.title && (
+        <div className="mb-3 text-[14px] font-semibold text-[var(--ink)]">
+          {props.title}
+        </div>
+      )}
+      <svg
+        viewBox={`0 0 ${Math.max(totalW, 1)} ${Math.max(totalH, 1)}`}
+        width="100%"
+        role="img"
+        aria-label="Concept map"
+      >
+        <defs>
+          <marker
+            id="cm-arrow"
+            viewBox="0 0 10 10"
+            refX="8"
+            refY="5"
+            markerWidth="6"
+            markerHeight="6"
+            orient="auto-start-reverse"
+          >
+            <path
+              d="M2 1L8 5L2 9"
+              fill="none"
+              stroke="var(--ink-2)"
+              strokeWidth="1.5"
+            />
+          </marker>
+        </defs>
+        {edges.map((e, i) => {
+          const a = pos.get(e.from);
+          const b = pos.get(e.to);
+          if (!a || !b) return null;
+          const x1 = a.x + NODE_W;
+          const y1 = a.y + NODE_H / 2;
+          const x2 = b.x;
+          const y2 = b.y + NODE_H / 2;
+          const mx = (x1 + x2) / 2;
+          return (
+            <path
+              key={i}
+              d={`M${x1} ${y1} C${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`}
+              fill="none"
+              stroke="var(--ink-2)"
+              strokeWidth="1.3"
+              markerEnd="url(#cm-arrow)"
+              opacity="0.55"
+            />
+          );
+        })}
+        {nodes.map((n) => {
+          const p = pos.get(n.id);
+          if (!p) return null;
+          return (
+            <g
+              key={n.id}
+              transform={`translate(${p.x} ${p.y})`}
+              style={{ cursor: "pointer" }}
+              onClick={() =>
+                dispatch?.({
+                  event: {
+                    name: "focus_topic",
+                    context: { topic: n.label, id: n.id },
+                  },
+                } as never)
+              }
+            >
+              <rect
+                width={NODE_W}
+                height={NODE_H}
+                rx="10"
+                fill="var(--surface-soft)"
+                stroke="var(--line)"
+                strokeWidth="1"
+              />
+              <text
+                x={NODE_W / 2}
+                y={NODE_H / 2}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize="12.5"
+                fill="var(--ink)"
+              >
+                {n.label.length > 20 ? n.label.slice(0, 19) + "…" : n.label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <p className="mt-2 text-[11px] text-[var(--ink-2)]">
+        Tap a concept to focus on it.
+      </p>
+    </div>
+  );
+};
+
+// ── SimulationLab (Pixel Campus interactive lab — projectile/trajectory) ────
+// A self-contained canvas "lab": tune sliders, FIRE, and try to hit the target.
+// The agent emits it for motion/physics/optimization topics (the generic
+// "tune the parameters to hit the goal" interactive). Ported from the
+// pixel-campus UI kit's Trajectory Lab.
+const SIM_INK = "#1B2A4A";
+const SIM_OUTLINE = "#0E1626";
+const SIM_CREAM = "#F4E4C1";
+const SIM_GOLD = "#FFC94D";
+const SIM_CORAL = "#F0596A";
+
+const SimulationLab = ({
+  props,
+}: RendererProps<{ title?: string; subject?: string; gravity?: number }>) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [angle, setAngle] = useState(45);
+  const [power, setPower] = useState(60);
+  const [gravity, setGravity] = useState(
+    Math.round(Number(props.gravity) || 10),
+  );
+  const [showTrace, setShowTrace] = useState(true);
+  const [verdict, setVerdict] = useState<{ hit: boolean; text: string } | null>(
+    null,
+  );
+  const animRef = useRef<number | null>(null);
+  const ballRef = useRef<{ x: number; y: number } | null>(null);
+  const targetRef = useRef<{ x: number; r: number }>({ x: 440, r: 18 });
+  const peakRef = useRef(0);
+
+  const W = 640;
+  const H = 300;
+  const GND = H - 24;
+
+  const live = useRef({ angle, power, gravity, showTrace });
+  live.current = { angle, power, gravity, showTrace };
+
+  const vel = (a: number, p: number) => {
+    const rad = (a * Math.PI) / 180;
+    const v = p * 0.42;
+    return { vx: Math.cos(rad) * v, vy: Math.sin(rad) * v };
+  };
+
+  const predict = () => {
+    const { angle: a, power: p, gravity: g } = live.current;
+    const { vx, vy } = vel(a, p);
+    const pts: [number, number][] = [];
+    let t = 0;
+    let pk = 0;
+    while (true) {
+      const cx = 24 + vx * t;
+      const cy = GND - (vy * t - 0.5 * g * t * t);
+      if (cy > GND && t > 0.2) break;
+      pts.push([cx, cy]);
+      pk = Math.max(pk, GND - cy);
+      t += 0.08;
+      if (cx > W + 40 || t > 30) break;
+    }
+    const range = pts.length ? pts[pts.length - 1][0] - 24 : 0;
+    return { pts, range: Math.max(0, Math.round(range / 4)), peak: Math.round(pk / 4) };
+  };
+
+  const draw = () => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const ctx = cv.getContext("2d");
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    const px = (x: number, y: number, w: number, h: number, c: string) => {
+      ctx.fillStyle = c;
+      ctx.fillRect(Math.round(x), Math.round(y), w, h);
+    };
+    px(0, 0, W, GND * 0.5, "#1C5FB0");
+    px(0, GND * 0.5, W, GND * 0.5, "#2E78C0");
+    ctx.fillStyle = "#3A7EC0";
+    for (let i = 0; i < 14; i++) ctx.fillRect((i * 53) % W, 18 + ((i * 37) % 70), 3, 3);
+    px(0, GND, W, 2, SIM_OUTLINE);
+    px(0, GND + 2, W, H - GND, "#7E8A99");
+    for (let i = 0; i < W; i += 8) px(i, GND + 6, 4, 2, "#6B7686");
+    const target = targetRef.current;
+    px(target.x - 2, GND - 40, 4, 40, SIM_OUTLINE);
+    px(target.x + 2, GND - 40, 18, 12, SIM_CORAL);
+    px(target.x + 2, GND - 40, 18, 1, "#fff");
+    ctx.fillStyle = SIM_GOLD;
+    ctx.beginPath();
+    ctx.arc(target.x, GND, target.r, 0, 7);
+    ctx.fill();
+    ctx.fillStyle = "#E8503C";
+    ctx.beginPath();
+    ctx.arc(target.x, GND, target.r - 7, 0, 7);
+    ctx.fill();
+    if (live.current.showTrace) {
+      const pr = predict();
+      ctx.fillStyle = "#FFD970";
+      pr.pts.forEach((p, i) => {
+        if (i % 2 === 0) ctx.fillRect(Math.round(p[0]), Math.round(p[1]), 3, 3);
+      });
+    }
+    const rad = (live.current.angle * Math.PI) / 180;
+    px(8, GND - 10, 26, 12, "#345F92");
+    px(8, GND - 12, 26, 2, SIM_OUTLINE);
+    ctx.save();
+    ctx.translate(20, GND - 6);
+    ctx.rotate(-rad);
+    px(0, -4, 22, 8, "#C8432E");
+    px(0, -5, 22, 1, SIM_OUTLINE);
+    px(0, 4, 22, 1, SIM_OUTLINE);
+    ctx.restore();
+    const ball = ballRef.current;
+    if (ball) {
+      px(ball.x - 3, ball.y - 3, 6, 6, SIM_OUTLINE);
+      px(ball.x - 2, ball.y - 2, 4, 4, SIM_CREAM);
+    }
+  };
+
+  useEffect(() => {
+    if (animRef.current == null) ballRef.current = null;
+    draw();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [angle, power, gravity, showTrace]);
+  useEffect(
+    () => () => {
+      if (animRef.current != null) cancelAnimationFrame(animRef.current);
+    },
+    [],
+  );
+
+  const settle = () => {
+    animRef.current = null;
+    draw();
+    const ball = ballRef.current;
+    if (!ball) return;
+    const dist = Math.abs(ball.x - targetRef.current.x);
+    if (dist <= targetRef.current.r)
+      setVerdict({ hit: true, text: "🎯 Direct hit!  +120 XP" });
+    else
+      setVerdict({
+        hit: false,
+        text: "✗ Missed by " + Math.round(dist / 4) + "m — adjust & retry",
+      });
+  };
+
+  const fire = () => {
+    if (animRef.current != null) cancelAnimationFrame(animRef.current);
+    setVerdict(null);
+    const { vx, vy } = vel(live.current.angle, live.current.power);
+    const g = live.current.gravity;
+    peakRef.current = 0;
+    let t = 0;
+    ballRef.current = { x: 24, y: GND };
+    const step = () => {
+      t += 0.08;
+      const b = ballRef.current!;
+      b.x = 24 + vx * t;
+      b.y = GND - (vy * t - 0.5 * g * t * t);
+      peakRef.current = Math.max(peakRef.current, GND - b.y);
+      if (b.y >= GND && t > 0.2) {
+        b.y = GND;
+        settle();
+        return;
+      }
+      draw();
+      if (b.x > W + 20) {
+        settle();
+        return;
+      }
+      animRef.current = requestAnimationFrame(step);
+    };
+    animRef.current = requestAnimationFrame(step);
+  };
+
+  const reset = () => {
+    if (animRef.current != null) cancelAnimationFrame(animRef.current);
+    animRef.current = null;
+    ballRef.current = null;
+    targetRef.current = { x: 320 + Math.random() * (W - 380), r: 18 };
+    setVerdict(null);
+    draw();
+  };
+
+  const pr = predict();
+  const simBtn = (bg: string, color: string): CSSProperties => ({
+    fontFamily: "var(--font-press-start), monospace",
+    fontSize: "10px",
+    border: `3px solid ${SIM_OUTLINE}`,
+    boxShadow: `4px 4px 0 ${SIM_OUTLINE}`,
+    background: bg,
+    color,
+    padding: "11px 14px",
+    cursor: "pointer",
+  });
+  const readoutChip = (k: string, v: string) => (
+    <span
+      key={k}
+      style={{
+        fontFamily: "var(--font-silkscreen), monospace",
+        fontWeight: 700,
+        fontSize: "11px",
+        background: "rgba(14,22,38,.78)",
+        color: SIM_CREAM,
+        padding: "5px 8px",
+        border: `3px solid ${SIM_OUTLINE}`,
+      }}
+    >
+      {k} <b style={{ color: SIM_GOLD }}>{v}</b>
+    </span>
+  );
+
+  return (
+    <div style={{ border: `4px solid ${SIM_OUTLINE}`, boxShadow: `8px 8px 0 ${SIM_OUTLINE}`, background: SIM_CREAM }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: SIM_INK, borderBottom: `4px solid ${SIM_OUTLINE}`, padding: "10px 14px" }}>
+        <span style={{ fontFamily: "var(--font-press-start), monospace", fontSize: "12px", color: SIM_CREAM }}>
+          {props.title || "🚀 Launch Lab"}
+        </span>
+        <span style={{ fontFamily: "var(--font-silkscreen), monospace", fontWeight: 700, fontSize: "11px", color: SIM_GOLD }}>
+          {props.subject || "PHYSICS · LAB"}
+        </span>
+      </div>
+      <div style={{ position: "relative", background: "#0E1626" }}>
+        <canvas
+          ref={canvasRef}
+          width={W}
+          height={H}
+          style={{ display: "block", width: "100%", height: 300, imageRendering: "pixelated" }}
+        />
+        <div style={{ position: "absolute", top: 10, left: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {readoutChip("ANGLE", angle + "°")}
+          {readoutChip("POWER", String(power))}
+          {readoutChip("GRAVITY", gravity.toFixed(1))}
+          {readoutChip("RANGE", pr.range + "m")}
+          {readoutChip("PEAK", pr.peak + "m")}
+        </div>
+      </div>
+      <div style={{ padding: 20, background: SIM_CREAM }}>
+        {(
+          [
+            ["ANGLE", angle, 10, 80, setAngle, angle + "°"],
+            ["POWER", power, 20, 100, setPower, String(power)],
+            ["GRAVITY", gravity, 2, 20, setGravity, gravity.toFixed(0)],
+          ] as const
+        ).map(([nm, val, min, max, setter, disp]) => (
+          <div key={nm} style={{ display: "grid", gridTemplateColumns: "84px 1fr 56px", alignItems: "center", gap: 12, marginBottom: 14 }}>
+            <span style={{ fontFamily: "var(--font-silkscreen), monospace", fontWeight: 700, fontSize: "11px", color: SIM_INK, letterSpacing: ".04em" }}>{nm}</span>
+            <input type="range" min={min} max={max} step={1} value={val} onChange={(e) => setter(Number(e.target.value))} style={{ width: "100%", accentColor: SIM_GOLD }} />
+            <span style={{ fontFamily: "var(--font-press-start), monospace", fontSize: "10px", color: "#E8503C", textAlign: "right" }}>{disp}</span>
+          </div>
+        ))}
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 6 }}>
+          <button type="button" onClick={fire} style={simBtn(SIM_CORAL, "#fff")}>▶ FIRE</button>
+          <button type="button" onClick={() => setShowTrace((s) => !s)} style={simBtn(SIM_GOLD, "#2A1A00")}>◌ TRACE</button>
+          <button type="button" onClick={reset} style={simBtn(SIM_CREAM, SIM_INK)}>↺ RESET</button>
+        </div>
+        {verdict && (
+          <div
+            style={{
+              fontFamily: "var(--font-press-start), monospace",
+              fontSize: "11px",
+              border: `4px solid ${SIM_OUTLINE}`,
+              marginTop: 14,
+              padding: "10px 12px",
+              background: verdict.hit ? SIM_GOLD : SIM_CORAL,
+              color: verdict.hit ? "#0C2A10" : "#fff",
+            }}
+          >
+            {verdict.text}
+          </div>
+        )}
+        <p style={{ fontFamily: "var(--font-vt323), monospace", fontSize: "16px", color: SIM_INK, marginTop: 12, textAlign: "center", opacity: 0.8 }}>
+          Tune the sliders to hit the 🎯. TRACE shows the predicted arc.
+        </p>
+      </div>
+    </div>
+  );
+};
+
 function Slot({ render }: { render: ReactNode }) {
   return <>{render}</>;
 }
@@ -1694,4 +2416,7 @@ export const renderers = {
   RateShockSimulator,
   QuizGame,
   FreeformUI,
+  GraphExplorer,
+  ConceptMap,
+  SimulationLab,
 };

@@ -13,7 +13,14 @@ import { catalog, CATALOG_ID } from "@/a2ui/catalog";
  * how the agent emits surfaces over the wire so the showcase doubles as
  * a sanity check on the catalog. */
 type Example = {
-  group: "layout" | "content" | "data" | "interactive" | "study" | "open";
+  group:
+    | "layout"
+    | "content"
+    | "data"
+    | "interactive"
+    | "study"
+    | "math"
+    | "open";
   name: string;
   blurb: string;
   surface: {
@@ -576,9 +583,9 @@ const EXAMPLES: Example[] = [
         {
           id: "root",
           component: "Flashcard",
-          front: "Modified duration",
-          back: "Macaulay duration ÷ (1 + y). It estimates a bond's % price change for a small yield move: ΔB/B ≈ −D* × Δy.",
-          hint: "Always a bit smaller than Macaulay duration.",
+          emoji: "⏳",
+          front: "Duration",
+          back: "How long, on average, until you get your money back — longer means the price swings more when rates move.",
         },
       ],
     },
@@ -710,6 +717,53 @@ const EXAMPLES: Example[] = [
       ],
     },
   },
+  {
+    group: "math",
+    name: "GraphExplorer",
+    blurb:
+      "Interactive function plotter. The agent supplies a math expression in x plus named params; drag the sliders and the curve re-plots live (safe evaluator, no eval). Maps 'functions → graph explorer'.",
+    surface: {
+      components: [
+        {
+          id: "root",
+          component: "GraphExplorer",
+          title: "a·x² + b·x + c",
+          expression: "a*x^2 + b*x + c",
+          params: [
+            { name: "a", min: -2, max: 2, value: 1 },
+            { name: "b", min: -5, max: 5, value: 0 },
+            { name: "c", min: -5, max: 5, value: -3 },
+          ],
+          xRange: [-6, 6],
+        },
+      ],
+    },
+  },
+  {
+    group: "math",
+    name: "ConceptMap",
+    blurb:
+      "A node-and-edge overview of how a lecture's concepts build on each other (levels = columns). Tapping a node fires a 'focus_topic' action so the agent can zoom in.",
+    surface: {
+      components: [
+        {
+          id: "root",
+          component: "ConceptMap",
+          nodes: [
+            { id: "fn", label: "Functions", level: 0 },
+            { id: "deriv", label: "Derivatives", level: 1 },
+            { id: "opt", label: "Optimization", level: 2 },
+            { id: "util", label: "Utility & risk", level: 3 },
+          ],
+          edges: [
+            { from: "fn", to: "deriv" },
+            { from: "deriv", to: "opt" },
+            { from: "opt", to: "util" },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 const GROUPS: { key: Example["group"]; label: string }[] = [
@@ -718,6 +772,7 @@ const GROUPS: { key: Example["group"]; label: string }[] = [
   { key: "data", label: "Data viz" },
   { key: "interactive", label: "Interactive" },
   { key: "study", label: "Study" },
+  { key: "math", label: "Math" },
   { key: "open", label: "Open UI" },
 ];
 

@@ -68,9 +68,12 @@ component must have `id: "root"`.
 - **ChoiceChips** { label, options: [{label,value}], value: {path}, multi?: bool }
 
 ### Study (Copilearn — use for learning surfaces)
-- **Flashcard** { front: string, back: string, hint?: string }
-    A click-to-flip study card. `front` = term/prompt, `back` = definition/answer.
-    Put several in a Stack or Grid (columns 2) to make a deck.
+- **Flashcard** { front: string, back: string, hint?: string, emoji?: string }
+    A click-to-flip study card — front shows an emoji + a short term; tap to flip
+    to the `back`. Keep `back` ELI5: one plain sentence a 12-year-old gets, no
+    jargon. `emoji` is one emoji that hints the idea. Put several in a Grid
+    (columns 2-3) to make a simple, tappable deck — prefer this over dense text
+    cards for explaining concepts.
 - **QuizQuestion** { question: string, options: [string], correctIndex: int (0-based), explanation?: string }
     One multiple-choice practice question with instant right/wrong feedback.
     `correctIndex` points at the right option; `explanation` shows after answering.
@@ -87,6 +90,29 @@ component must have `id: "root"`.
     All bond math is computed in the widget — just pass the bond's parameters
     (couponRate/ytm are ANNUAL percents, e.g. 9 for 9%; frequency = coupons/year,
     default 2). Each numeric prop is path-bindable.
+
+### Math (content-adaptive widgets for math/stats lectures)
+- **GraphExplorer** { title?, expression: string, params?: [{name,min,max,value,step?}], xRange?: [min,max], yRange?, xLabel?, yLabel? }
+    Interactive function plotter. `expression` is a math formula in `x` plus any
+    named params (e.g. "a*x^2 + b*x + c"). Supports + - * / ^, parentheses, unary
+    minus, sin/cos/tan/exp/ln/log/sqrt/abs, constants pi/e. Each entry in `params`
+    becomes a live slider that re-plots the curve. Use for "functions" sections,
+    and for "optimization" (plot the objective and see its max/min). Numeric/array
+    props are path-bindable.
+- **SimulationLab** { title?, subject?, gravity?:number }
+    An interactive 16-bit "lab": the student tunes sliders (angle, power,
+    gravity), presses FIRE, and tries to land a projectile on a target, with a
+    live predicted-arc trace and a hit/miss verdict. Use it as the playable,
+    hands-on SIMULATION for a course — for motion/physics/projectile/optimization
+    or any "tune the parameters to hit the goal" topic. Set `title` (e.g.
+    "🚀 Launch Lab") and `subject` (e.g. "PHYSICS · LVL 2"). This is the
+    centerpiece interactive — prefer it when the lecture has anything dynamic
+    to play with.
+- **ConceptMap** { title?, nodes: [{id,label,level?,group?}], edges: [{from,to,label?}] }
+    A node-and-edge overview of how the lecture's concepts relate. Give each node
+    a `level` (0 = earliest) for a left-to-right layout. Tapping a node fires a
+    `focus_topic` action. Use this as the lecture overview. nodes/edges are
+    path-bindable.
 
 ### Open generative UI (escape hatch — use ONLY when nothing above fits)
 - **FreeformUI** { html: string, height?: number, title?: string }
