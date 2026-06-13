@@ -6,6 +6,7 @@ import { SurfaceCanvas } from "@/components/pdf-analyst/SurfaceCanvas";
 import { FilteredUserMessage } from "@/components/pdf-analyst/FilteredUserMessage";
 import { FilteredAssistantMessage } from "@/components/pdf-analyst/FilteredAssistantMessage";
 import { PixelLanding } from "@/components/pdf-analyst/PixelLanding";
+import { StudyBuddy } from "@/components/pdf-analyst/StudyBuddy";
 import { surfaceBus } from "@/a2ui/surface-bus";
 
 const AGENT_ID = "dynamic_agent";
@@ -51,11 +52,14 @@ export default function FixedPage() {
         {!hasSurface ? (
           <PixelLanding agentId={AGENT_ID} mode="page" />
         ) : (
-          <div className="h-full flex justify-center">
-            <div className="w-full max-w-[1120px] h-full">
-              <SurfaceCanvas channel={AGENT_ID} emptyState={null} />
+          <>
+            <div className="h-full flex justify-center">
+              <div className="w-full max-w-[1120px] h-full">
+                <SurfaceCanvas channel={AGENT_ID} emptyState={null} />
+              </div>
             </div>
-          </div>
+            <StudyBuddy agentId={AGENT_ID} />
+          </>
         )}
       </div>
 

@@ -232,10 +232,10 @@ const Card = ({
   const tones: Record<string, string> = {
     default: "bg-[var(--surface)] border-[var(--line)]",
     lilac:
-      "bg-[color-mix(in_oklab,var(--lilac)_8%,white)] border-[var(--lilac)]",
-    mint: "bg-[color-mix(in_oklab,var(--mint)_10%,white)] border-[color-mix(in_oklab,var(--mint)_60%,white)]",
+      "bg-[color-mix(in_oklab,var(--lilac)_28%,white)] border-[var(--line)]",
+    mint: "bg-[color-mix(in_oklab,var(--mint)_28%,white)] border-[var(--line)]",
     warning:
-      "bg-[color-mix(in_oklab,var(--orange)_8%,white)] border-[color-mix(in_oklab,var(--orange)_50%,white)]",
+      "bg-[color-mix(in_oklab,var(--orange)_26%,white)] border-[var(--line)]",
   };
   return (
     <div
@@ -309,13 +309,10 @@ const Badge = ({
   const tones = {
     neutral:
       "bg-[var(--surface-soft)] text-[var(--ink-2)] border-[var(--line)]",
-    info: "bg-[color-mix(in_oklab,var(--lilac)_18%,white)] text-[#2e2c75] border-[color-mix(in_oklab,var(--lilac)_60%,white)]",
-    positive:
-      "bg-[color-mix(in_oklab,var(--mint)_18%,white)] text-[#0a5d44] border-[color-mix(in_oklab,var(--mint)_70%,white)]",
-    warning:
-      "bg-[color-mix(in_oklab,var(--orange)_18%,white)] text-[#7a3f0f] border-[color-mix(in_oklab,var(--orange)_60%,white)]",
-    danger:
-      "bg-[color-mix(in_oklab,var(--red)_12%,white)] text-[#7a1b22] border-[color-mix(in_oklab,var(--red)_55%,white)]",
+    info: "bg-[var(--lilac)] text-[var(--ink)] border-[var(--line)]",
+    positive: "bg-[var(--mint)] text-[#08351b] border-[var(--line)]",
+    warning: "bg-[var(--orange)] text-white border-[var(--line)]",
+    danger: "bg-[#e0414f] text-white border-[var(--line)]",
   } as const;
   return (
     <span
