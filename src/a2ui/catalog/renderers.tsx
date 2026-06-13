@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 import {
@@ -2109,6 +2110,280 @@ const ConceptMap = ({
   );
 };
 
+// ── SimulationLab (Pixel Campus interactive lab — projectile/trajectory) ────
+// A self-contained canvas "lab": tune sliders, FIRE, and try to hit the target.
+// The agent emits it for motion/physics/optimization topics (the generic
+// "tune the parameters to hit the goal" interactive). Ported from the
+// pixel-campus UI kit's Trajectory Lab.
+const SIM_INK = "#1B2A4A";
+const SIM_OUTLINE = "#0E1626";
+const SIM_CREAM = "#F4E4C1";
+const SIM_GOLD = "#FFC94D";
+const SIM_CORAL = "#F0596A";
+
+const SimulationLab = ({
+  props,
+}: RendererProps<{ title?: string; subject?: string; gravity?: number }>) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [angle, setAngle] = useState(45);
+  const [power, setPower] = useState(60);
+  const [gravity, setGravity] = useState(
+    Math.round(Number(props.gravity) || 10),
+  );
+  const [showTrace, setShowTrace] = useState(true);
+  const [verdict, setVerdict] = useState<{ hit: boolean; text: string } | null>(
+    null,
+  );
+  const animRef = useRef<number | null>(null);
+  const ballRef = useRef<{ x: number; y: number } | null>(null);
+  const targetRef = useRef<{ x: number; r: number }>({ x: 440, r: 18 });
+  const peakRef = useRef(0);
+
+  const W = 640;
+  const H = 300;
+  const GND = H - 24;
+
+  const live = useRef({ angle, power, gravity, showTrace });
+  live.current = { angle, power, gravity, showTrace };
+
+  const vel = (a: number, p: number) => {
+    const rad = (a * Math.PI) / 180;
+    const v = p * 0.42;
+    return { vx: Math.cos(rad) * v, vy: Math.sin(rad) * v };
+  };
+
+  const predict = () => {
+    const { angle: a, power: p, gravity: g } = live.current;
+    const { vx, vy } = vel(a, p);
+    const pts: [number, number][] = [];
+    let t = 0;
+    let pk = 0;
+    while (true) {
+      const cx = 24 + vx * t;
+      const cy = GND - (vy * t - 0.5 * g * t * t);
+      if (cy > GND && t > 0.2) break;
+      pts.push([cx, cy]);
+      pk = Math.max(pk, GND - cy);
+      t += 0.08;
+      if (cx > W + 40 || t > 30) break;
+    }
+    const range = pts.length ? pts[pts.length - 1][0] - 24 : 0;
+    return { pts, range: Math.max(0, Math.round(range / 4)), peak: Math.round(pk / 4) };
+  };
+
+  const draw = () => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const ctx = cv.getContext("2d");
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    const px = (x: number, y: number, w: number, h: number, c: string) => {
+      ctx.fillStyle = c;
+      ctx.fillRect(Math.round(x), Math.round(y), w, h);
+    };
+    px(0, 0, W, GND * 0.5, "#1C5FB0");
+    px(0, GND * 0.5, W, GND * 0.5, "#2E78C0");
+    ctx.fillStyle = "#3A7EC0";
+    for (let i = 0; i < 14; i++) ctx.fillRect((i * 53) % W, 18 + ((i * 37) % 70), 3, 3);
+    px(0, GND, W, 2, SIM_OUTLINE);
+    px(0, GND + 2, W, H - GND, "#7E8A99");
+    for (let i = 0; i < W; i += 8) px(i, GND + 6, 4, 2, "#6B7686");
+    const target = targetRef.current;
+    px(target.x - 2, GND - 40, 4, 40, SIM_OUTLINE);
+    px(target.x + 2, GND - 40, 18, 12, SIM_CORAL);
+    px(target.x + 2, GND - 40, 18, 1, "#fff");
+    ctx.fillStyle = SIM_GOLD;
+    ctx.beginPath();
+    ctx.arc(target.x, GND, target.r, 0, 7);
+    ctx.fill();
+    ctx.fillStyle = "#E8503C";
+    ctx.beginPath();
+    ctx.arc(target.x, GND, target.r - 7, 0, 7);
+    ctx.fill();
+    if (live.current.showTrace) {
+      const pr = predict();
+      ctx.fillStyle = "#FFD970";
+      pr.pts.forEach((p, i) => {
+        if (i % 2 === 0) ctx.fillRect(Math.round(p[0]), Math.round(p[1]), 3, 3);
+      });
+    }
+    const rad = (live.current.angle * Math.PI) / 180;
+    px(8, GND - 10, 26, 12, "#345F92");
+    px(8, GND - 12, 26, 2, SIM_OUTLINE);
+    ctx.save();
+    ctx.translate(20, GND - 6);
+    ctx.rotate(-rad);
+    px(0, -4, 22, 8, "#C8432E");
+    px(0, -5, 22, 1, SIM_OUTLINE);
+    px(0, 4, 22, 1, SIM_OUTLINE);
+    ctx.restore();
+    const ball = ballRef.current;
+    if (ball) {
+      px(ball.x - 3, ball.y - 3, 6, 6, SIM_OUTLINE);
+      px(ball.x - 2, ball.y - 2, 4, 4, SIM_CREAM);
+    }
+  };
+
+  useEffect(() => {
+    if (animRef.current == null) ballRef.current = null;
+    draw();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [angle, power, gravity, showTrace]);
+  useEffect(
+    () => () => {
+      if (animRef.current != null) cancelAnimationFrame(animRef.current);
+    },
+    [],
+  );
+
+  const settle = () => {
+    animRef.current = null;
+    draw();
+    const ball = ballRef.current;
+    if (!ball) return;
+    const dist = Math.abs(ball.x - targetRef.current.x);
+    if (dist <= targetRef.current.r)
+      setVerdict({ hit: true, text: "🎯 Direct hit!  +120 XP" });
+    else
+      setVerdict({
+        hit: false,
+        text: "✗ Missed by " + Math.round(dist / 4) + "m — adjust & retry",
+      });
+  };
+
+  const fire = () => {
+    if (animRef.current != null) cancelAnimationFrame(animRef.current);
+    setVerdict(null);
+    const { vx, vy } = vel(live.current.angle, live.current.power);
+    const g = live.current.gravity;
+    peakRef.current = 0;
+    let t = 0;
+    ballRef.current = { x: 24, y: GND };
+    const step = () => {
+      t += 0.08;
+      const b = ballRef.current!;
+      b.x = 24 + vx * t;
+      b.y = GND - (vy * t - 0.5 * g * t * t);
+      peakRef.current = Math.max(peakRef.current, GND - b.y);
+      if (b.y >= GND && t > 0.2) {
+        b.y = GND;
+        settle();
+        return;
+      }
+      draw();
+      if (b.x > W + 20) {
+        settle();
+        return;
+      }
+      animRef.current = requestAnimationFrame(step);
+    };
+    animRef.current = requestAnimationFrame(step);
+  };
+
+  const reset = () => {
+    if (animRef.current != null) cancelAnimationFrame(animRef.current);
+    animRef.current = null;
+    ballRef.current = null;
+    targetRef.current = { x: 320 + Math.random() * (W - 380), r: 18 };
+    setVerdict(null);
+    draw();
+  };
+
+  const pr = predict();
+  const simBtn = (bg: string, color: string): CSSProperties => ({
+    fontFamily: "var(--font-press-start), monospace",
+    fontSize: "10px",
+    border: `3px solid ${SIM_OUTLINE}`,
+    boxShadow: `4px 4px 0 ${SIM_OUTLINE}`,
+    background: bg,
+    color,
+    padding: "11px 14px",
+    cursor: "pointer",
+  });
+  const readoutChip = (k: string, v: string) => (
+    <span
+      key={k}
+      style={{
+        fontFamily: "var(--font-silkscreen), monospace",
+        fontWeight: 700,
+        fontSize: "11px",
+        background: "rgba(14,22,38,.78)",
+        color: SIM_CREAM,
+        padding: "5px 8px",
+        border: `3px solid ${SIM_OUTLINE}`,
+      }}
+    >
+      {k} <b style={{ color: SIM_GOLD }}>{v}</b>
+    </span>
+  );
+
+  return (
+    <div style={{ border: `4px solid ${SIM_OUTLINE}`, boxShadow: `8px 8px 0 ${SIM_OUTLINE}`, background: SIM_CREAM }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: SIM_INK, borderBottom: `4px solid ${SIM_OUTLINE}`, padding: "10px 14px" }}>
+        <span style={{ fontFamily: "var(--font-press-start), monospace", fontSize: "12px", color: SIM_CREAM }}>
+          {props.title || "🚀 Launch Lab"}
+        </span>
+        <span style={{ fontFamily: "var(--font-silkscreen), monospace", fontWeight: 700, fontSize: "11px", color: SIM_GOLD }}>
+          {props.subject || "PHYSICS · LAB"}
+        </span>
+      </div>
+      <div style={{ position: "relative", background: "#0E1626" }}>
+        <canvas
+          ref={canvasRef}
+          width={W}
+          height={H}
+          style={{ display: "block", width: "100%", height: 300, imageRendering: "pixelated" }}
+        />
+        <div style={{ position: "absolute", top: 10, left: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {readoutChip("ANGLE", angle + "°")}
+          {readoutChip("POWER", String(power))}
+          {readoutChip("GRAVITY", gravity.toFixed(1))}
+          {readoutChip("RANGE", pr.range + "m")}
+          {readoutChip("PEAK", pr.peak + "m")}
+        </div>
+      </div>
+      <div style={{ padding: 20, background: SIM_CREAM }}>
+        {(
+          [
+            ["ANGLE", angle, 10, 80, setAngle, angle + "°"],
+            ["POWER", power, 20, 100, setPower, String(power)],
+            ["GRAVITY", gravity, 2, 20, setGravity, gravity.toFixed(0)],
+          ] as const
+        ).map(([nm, val, min, max, setter, disp]) => (
+          <div key={nm} style={{ display: "grid", gridTemplateColumns: "84px 1fr 56px", alignItems: "center", gap: 12, marginBottom: 14 }}>
+            <span style={{ fontFamily: "var(--font-silkscreen), monospace", fontWeight: 700, fontSize: "11px", color: SIM_INK, letterSpacing: ".04em" }}>{nm}</span>
+            <input type="range" min={min} max={max} step={1} value={val} onChange={(e) => setter(Number(e.target.value))} style={{ width: "100%", accentColor: SIM_GOLD }} />
+            <span style={{ fontFamily: "var(--font-press-start), monospace", fontSize: "10px", color: "#E8503C", textAlign: "right" }}>{disp}</span>
+          </div>
+        ))}
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 6 }}>
+          <button type="button" onClick={fire} style={simBtn(SIM_CORAL, "#fff")}>▶ FIRE</button>
+          <button type="button" onClick={() => setShowTrace((s) => !s)} style={simBtn(SIM_GOLD, "#2A1A00")}>◌ TRACE</button>
+          <button type="button" onClick={reset} style={simBtn(SIM_CREAM, SIM_INK)}>↺ RESET</button>
+        </div>
+        {verdict && (
+          <div
+            style={{
+              fontFamily: "var(--font-press-start), monospace",
+              fontSize: "11px",
+              border: `4px solid ${SIM_OUTLINE}`,
+              marginTop: 14,
+              padding: "10px 12px",
+              background: verdict.hit ? SIM_GOLD : SIM_CORAL,
+              color: verdict.hit ? "#0C2A10" : "#fff",
+            }}
+          >
+            {verdict.text}
+          </div>
+        )}
+        <p style={{ fontFamily: "var(--font-vt323), monospace", fontSize: "16px", color: SIM_INK, marginTop: 12, textAlign: "center", opacity: 0.8 }}>
+          Tune the sliders to hit the 🎯. TRACE shows the predicted arc.
+        </p>
+      </div>
+    </div>
+  );
+};
+
 function Slot({ render }: { render: ReactNode }) {
   return <>{render}</>;
 }
@@ -2143,4 +2418,5 @@ export const renderers = {
   FreeformUI,
   GraphExplorer,
   ConceptMap,
+  SimulationLab,
 };

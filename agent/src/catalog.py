@@ -99,6 +99,15 @@ component must have `id: "root"`.
     becomes a live slider that re-plots the curve. Use for "functions" sections,
     and for "optimization" (plot the objective and see its max/min). Numeric/array
     props are path-bindable.
+- **SimulationLab** { title?, subject?, gravity?:number }
+    An interactive 16-bit "lab": the student tunes sliders (angle, power,
+    gravity), presses FIRE, and tries to land a projectile on a target, with a
+    live predicted-arc trace and a hit/miss verdict. Use it as the playable,
+    hands-on SIMULATION for a course — for motion/physics/projectile/optimization
+    or any "tune the parameters to hit the goal" topic. Set `title` (e.g.
+    "🚀 Launch Lab") and `subject` (e.g. "PHYSICS · LVL 2"). This is the
+    centerpiece interactive — prefer it when the lecture has anything dynamic
+    to play with.
 - **ConceptMap** { title?, nodes: [{id,label,level?,group?}], edges: [{from,to,label?}] }
     A node-and-edge overview of how the lecture's concepts relate. Give each node
     a `level` (0 = earliest) for a left-to-right layout. Tapping a node fires a

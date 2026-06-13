@@ -330,6 +330,14 @@ secondary LLM will honor it. Defaults per shape_hint:
   about bond price sensitivity: pass faceValue, couponRate, maturityYears,
   ytm, frequency (couponRate/ytm are annual percents). Use it when the user
   wants to "see" or "play with" how a bond's price reacts to rate changes.
+- A SimulationLab node is the CENTERPIECE interactive: a playable 16-bit lab
+  where the student tunes sliders and FIREs to hit a target (with a predicted
+  arc + hit/miss verdict). Whenever the topic has ANYTHING dynamic, physical,
+  or quantitative to play with (motion, forces, rates, growth, optimization,
+  "what happens if I change X"), INCLUDE a SimulationLab near the top — set its
+  `title` and `subject` to the course (e.g. title "🚀 Launch Lab", subject
+  "PHYSICS · LVL 2"). Prefer it over a static chart when the learner could
+  experiment.
 - `stat`  -> Stack(Overline, StatCard)
 - `trend` -> Stack(Section -> Card -> LineChart)
 - `share` -> Stack(Section -> Card -> DonutChart)

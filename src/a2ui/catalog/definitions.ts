@@ -418,6 +418,20 @@ export const definitions = {
     }),
   },
 
+  SimulationLab: {
+    description:
+      "An interactive 16-bit physics 'lab': the student tunes sliders " +
+      "(angle, power, gravity), hits FIRE, and tries to land a projectile on " +
+      "a target — with a live predicted-arc trace and a hit/miss verdict. Use " +
+      "for motion / physics / projectile / 'tune-to-hit-the-goal' topics — the " +
+      "playable, hands-on simulation for a course.",
+    props: z.object({
+      title: stringOrPath.optional(),
+      subject: stringOrPath.optional(),
+      gravity: numberOrPath.optional(),
+    }),
+  },
+
   ConceptMap: {
     description:
       "A node-and-edge map of how a lecture's concepts relate — the study " +

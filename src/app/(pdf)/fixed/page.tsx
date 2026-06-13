@@ -8,7 +8,7 @@ import { FilteredAssistantMessage } from "@/components/pdf-analyst/FilteredAssis
 import { PixelLanding } from "@/components/pdf-analyst/PixelLanding";
 import { surfaceBus } from "@/a2ui/surface-bus";
 
-const AGENT_ID = "fixed_agent";
+const AGENT_ID = "dynamic_agent";
 
 /* Single-screen experience (Pixel Campus). One sky page: drop a lecture →
  * the generated study workspace renders right here, on the same sky design.

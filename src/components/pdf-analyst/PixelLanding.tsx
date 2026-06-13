@@ -38,8 +38,22 @@ export function PixelLanding({
   );
   const [fileName, setFileName] = useState("");
   const [err, setErr] = useState("");
+  const [query, setQuery] = useState("");
 
   const busy = status === "reading" || status === "generating";
+
+  // Typed topic / link → live web search (Linkup), then build a study level.
+  const submitText = () => {
+    const q = query.trim();
+    if (!q || busy) return;
+    setErr("");
+    setFileName(q);
+    send(
+      `Use live web search to research "${q}" and build me a study workspace teaching it — ` +
+        `start with the key ideas as simple flip-cards (one emoji + a one-sentence ELI5 each), ` +
+        `then a short practice quiz, and cite your sources.`,
+    );
+  };
 
   const send = (content: string) => {
     if (!agent) return;
@@ -67,10 +81,9 @@ export function PixelLanding({
     try {
       const { text } = await extractPdfText(file);
       send(
-        `Build my study workspace from these lecture slides.\n\n[Document: ${file.name}]\n${text.slice(
-          0,
-          60000,
-        )}`,
+        `Build me a study workspace from these slides — a concept map of how the ideas connect, ` +
+          `the key concepts as simple flip-cards (one emoji + a one-sentence ELI5 each), and a short ` +
+          `practice quiz.\n\n[Document: ${file.name}]\n${text.slice(0, 60000)}`,
       );
     } catch {
       setErr("Couldn't read that PDF. Try another file.");
@@ -113,7 +126,7 @@ export function PixelLanding({
           className="pc-eyebrow inline-block mb-6"
           style={{ fontSize: "0.6rem", padding: "8px 12px", color: "var(--pc-primary)" }}
         >
-          VOL. 1 · DROP A LECTURE
+          VOL. 1 · LEARN ANYTHING
         </span>
 
         <h1
@@ -127,17 +140,15 @@ export function PixelLanding({
             fontFamily: "var(--font-vt323), monospace",
             fontSize: "1.5rem",
             color: "var(--pc-primary)",
-            marginBottom: "2rem",
+            marginBottom: "1.5rem",
             textShadow: "2px 2px 0 var(--pc-outline)",
           }}
         >
-          Drop your lecture slides. We build the study level from what's inside.
+          Type a topic to research live — or import your slides with +.
         </p>
 
-        {/* the portal / dropzone */}
-        <button
-          type="button"
-          onClick={() => !busy && inputRef.current?.click()}
+        {/* chat-bar input: + imports a PDF, typing a topic runs a web search */}
+        <div
           onDragOver={(e) => {
             e.preventDefault();
             if (!busy) setDrag(true);
@@ -148,49 +159,80 @@ export function PixelLanding({
             setDrag(false);
             if (!busy) void handleFile(e.dataTransfer.files?.[0]);
           }}
-          className={`pc-dropzone ${drag ? "is-drag" : ""}`}
+          className="pc-panel"
           style={{
-            width: "min(520px, 90vw)",
-            minHeight: 200,
-            padding: 28,
+            width: "min(640px, 92vw)",
             display: "flex",
-            flexDirection: "column",
             alignItems: "center",
-            justifyContent: "center",
-            gap: 14,
+            gap: 10,
+            padding: 10,
+            background: drag ? "var(--pc-gold)" : "var(--pc-primary)",
           }}
         >
           {busy ? (
-            <>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "8px 6px",
+                width: "100%",
+                justifyContent: "center",
+              }}
+            >
               <PixelDisk spinning />
-              <span className="pc-hud" style={{ fontSize: "0.95rem", color: "var(--pc-ink)" }}>
+              <span className="pc-hud" style={{ fontSize: "0.9rem", color: "var(--pc-ink)" }}>
                 {status === "reading" ? "READING SLIDES…" : "BUILDING YOUR LEVEL…"}
               </span>
-              <span style={{ fontFamily: "var(--font-vt323), monospace", fontSize: "1.1rem", color: "var(--pc-ink)" }}>
-                {fileName || "sample lecture"} <span className="pc-blink">▶</span>
+              <span className="pc-blink" style={{ color: "var(--pc-ink)" }}>
+                ▶
               </span>
-            </>
+            </div>
           ) : (
             <>
-              <PixelDisk />
-              <span
-                className="pc-pixel-label"
-                style={{ fontSize: "0.72rem", color: "var(--pc-ink)", lineHeight: 1.6 }}
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                title="Import lecture slides (PDF)"
+                aria-label="Import slides"
+                className="pc-btn pc-btn-secondary"
+                style={{ fontSize: "1.1rem", padding: "8px 14px", lineHeight: 1 }}
               >
-                DROP LECTURE SLIDES
-              </span>
-              <span style={{ fontFamily: "var(--font-vt323), monospace", fontSize: "1.2rem", color: "var(--pc-ink)", opacity: 0.8 }}>
-                or click to insert a PDF
-              </span>
-              <span className="pc-btn pc-btn-primary" style={{ fontSize: "0.6rem", padding: "12px 16px", marginTop: 6 }}>
-                INSERT LECTURE
-              </span>
+                +
+              </button>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submitText();
+                }}
+                placeholder="Type a topic to research, or + to import slides…"
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  background: "transparent",
+                  border: "none",
+                  outline: "none",
+                  fontFamily: "var(--font-vt323), monospace",
+                  fontSize: "1.4rem",
+                  color: "var(--pc-ink)",
+                }}
+              />
+              <button
+                type="button"
+                onClick={submitText}
+                aria-label="Go"
+                className="pc-btn pc-btn-primary"
+                style={{ fontSize: "0.8rem", padding: "10px 14px", lineHeight: 1 }}
+              >
+                ▶
+              </button>
             </>
           )}
-        </button>
+        </div>
 
         {/* sample / error line */}
-        <div style={{ marginTop: 18, minHeight: 28 }}>
+        <div style={{ marginTop: 16, minHeight: 28 }}>
           {status === "error" ? (
             <span style={{ fontFamily: "var(--font-vt323), monospace", fontSize: "1.2rem", color: "#fff", background: "var(--pc-coral)", padding: "4px 10px", border: "3px solid var(--pc-outline)" }}>
               {err}
@@ -203,7 +245,7 @@ export function PixelLanding({
                 className="pc-hud"
                 style={{ background: "transparent", color: "var(--pc-primary)", fontSize: "0.85rem", textDecoration: "underline", cursor: "pointer" }}
               >
-                no slides handy? play the sample level →
+                no idea where to start? play the sample level →
               </button>
             )
           )}
