@@ -42,7 +42,7 @@
   {
     "id": "concept-section",
     "component": "Section",
-    "eyebrow": "LECTURE 3",
+    "eyebrow": "TOPICS",
     "title": "Key concepts",
     "child": "concept-grid"
   },

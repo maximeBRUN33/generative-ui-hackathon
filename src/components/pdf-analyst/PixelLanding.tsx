@@ -21,7 +21,15 @@ Modified duration estimates the percentage price change for a small yield move: 
 Convexity is the curvature of the price-yield relationship; it corrects duration's straight-line estimate, which under-predicts the price for large rate moves.
 Immunization matches the duration of assets to the liability (or investment horizon) so price risk and reinvestment risk offset, locking in a realized yield.`;
 
-export function PixelLanding({ agentId }: { agentId: string }) {
+export function PixelLanding({
+  agentId,
+  mode = "overlay",
+}: {
+  agentId: string;
+  /** "overlay" = fixed full-screen cover (default); "page" = normal in-flow
+   *  section so other content can sit on the same page beneath it. */
+  mode?: "overlay" | "page";
+}) {
   const { agent } = useAgent({ agentId });
   const inputRef = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
@@ -71,7 +79,13 @@ export function PixelLanding({ agentId }: { agentId: string }) {
   };
 
   return (
-    <div className="pixel-campus pc-sky fixed inset-0 z-50 overflow-hidden flex flex-col">
+    <div
+      className={`pixel-campus pc-sky overflow-hidden flex flex-col ${
+        mode === "overlay"
+          ? "fixed inset-0 z-50"
+          : "relative w-full h-full overflow-y-auto"
+      }`}
+    >
       {/* clouds */}
       <div className="pc-cloud" style={{ width: 16, height: 16, top: "14%", left: "16%" }} />
       <div className="pc-cloud" style={{ width: 16, height: 16, top: "22%", right: "20%" }} />

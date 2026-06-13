@@ -27,8 +27,8 @@
   /* Surfaces */
   --bg: #1c5fb0; /* sky-top — chrome backdrop */
   --bg-alt: #2a6bbe;
-  --surface: #f7ecce; /* cream card */
-  --surface-soft: #e6d4a6; /* inset cream (plot bg, tracks) */
+  --surface: #fffaf0; /* near-white cream card — crisp against navy outlines */
+  --surface-soft: #f0e3c0; /* warm cream inset (plot bg, tracks, badges) */
   --ink: #1b2a4a; /* navy text */
   --ink-2: #44557a;
   --muted: #44557a;

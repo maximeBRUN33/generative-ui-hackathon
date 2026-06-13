@@ -13,20 +13,20 @@
  * corners, VT323 reading type. Hard offset shadows + pixel heading fonts are
  * layered in pixel-campus.css (scoped to .a2ui-surface). */
 .a2ui-surface {
-  --background: #e7d8ad;
+  --background: #f3e6c4;
   --foreground: #1b2a4a;
-  --card: #f7ecce;
+  --card: #fffaf0;
   --primary: #f0596a;
   --primary-foreground: #ffffff;
   --border: #101a30;
   --input: #101a30;
-  --muted: #e6d4a6;
+  --muted: #f0e3c0;
   --muted-foreground: #44557a;
   --accent: #ffc94d;
   --accent-foreground: #1b2a4a;
   --radius: 0px;
 
-  background: #e7d8ad;
+  background: #f3e6c4;
   font-family: var(--font-vt323), ui-monospace, monospace !important;
   letter-spacing: 0;
   line-height: 1.4;

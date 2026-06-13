@@ -33,6 +33,36 @@ cpk-web-inspector {
   accent-color: var(--orange);
 }
 
+/* VT323 reads small at the catalog's px sizes — bump the body + headings so
+ * lecture content is comfortably readable (DESIGN.md sets reading type ~22px). */
+.a2ui-surface [class*="text-[11px]"] {
+  font-size: 13px !important;
+}
+.a2ui-surface [class*="text-[12px]"],
+.a2ui-surface [class*="text-[12.5px]"],
+.a2ui-surface [class*="text-[13px]"],
+.a2ui-surface [class*="text-[13.5px]"] {
+  font-size: 16px !important;
+  line-height: 1.4 !important;
+}
+.a2ui-surface [class*="text-[14px]"] {
+  font-size: 17px !important;
+  line-height: 1.4 !important;
+}
+.a2ui-surface [class*="text-[15px]"] {
+  font-size: 19px !important;
+}
+.a2ui-surface [class*="text-[16px]"],
+.a2ui-surface [class*="text-[18px]"] {
+  font-size: 19px !important;
+}
+.a2ui-surface [class*="text-[20px]"] {
+  font-size: 22px !important;
+}
+.a2ui-surface [class*="text-[30px]"] {
+  font-size: 26px !important;
+}
+
 /* Pixel Campus — 16-bit design system (see DESIGN.md). Scoped to
  * .pixel-campus so it never touches the rest of the app. Hard edges, flat
  * offset shadows, square corners, pixelated rendering. */
