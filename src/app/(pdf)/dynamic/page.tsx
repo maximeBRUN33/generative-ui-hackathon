@@ -116,9 +116,10 @@ export default function DynamicPage() {
                     console.warn("[pdf upload failed]", err),
                 }}
                 labels={{
-                  chatInputPlaceholder: "Attach a PDF (📎), then ask anything…",
+                  chatInputPlaceholder:
+                    "Attach lecture slides (📎), then say “quiz me on…”",
                   welcomeMessageText:
-                    "Attach a PDF using the 📎 button, then ask any question.",
+                    "Attach your lecture PDF (📎), then try “Quiz me on derivatives” or “Make flashcards for utility.”",
                 }}
               />
             </div>
@@ -129,11 +130,11 @@ export default function DynamicPage() {
             channel={AGENT_ID}
             emptyState={
               <CanvasEmptyState
-                title="Canvas is empty"
-                subtitle="Attach a PDF in the chat and ask anything. The agent will compose a UI surface using the catalog and render it here."
+                title="Your study tools appear here"
+                subtitle="Attach a lecture PDF and ask to be quizzed or to drill flashcards. The agent composes the right study surface from the catalog and renders it here."
                 hint={
                   <span className="mono text-[11px] uppercase tracking-[0.14em] text-[var(--ink)]">
-                    try: “Show me the revenue trend.”
+                    try: “Quiz me on derivatives.”
                   </span>
                 }
               />

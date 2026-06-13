@@ -33,6 +33,7 @@ const childrenRef = z.union([
 
 /* Helpers for "may be a literal or a path binding". */
 const stringOrPath = z.union([z.string(), z.object({ path: z.string() })]);
+const numberOrPath = z.union([z.number(), z.object({ path: z.string() })]);
 
 export const definitions = {
   Stack: {
@@ -272,6 +273,95 @@ export const definitions = {
       ]),
       value: z.object({ path: z.string() }),
       multi: z.boolean().optional(),
+    }),
+  },
+
+  // ── Study components (Copilearn) ────────────────────────────────────────
+  // Added for the generative learning workspace. Flashcard + QuizQuestion are
+  // interactive via LOCAL React state (flip / answer feedback) — no agent
+  // round-trip, so the demo stays instant. ProgressTracker is a data-bound
+  // display, path-bindable like the charts.
+  Flashcard: {
+    description:
+      "A flip card for study. Shows `front` (the term/prompt); click to flip " +
+      "and reveal `back` (the definition/answer). Optional `hint` shows under " +
+      "the front. Use a Stack/Grid of Flashcards for a deck.",
+    props: z.object({
+      front: stringOrPath,
+      back: stringOrPath,
+      hint: stringOrPath.optional(),
+    }),
+  },
+
+  QuizQuestion: {
+    description:
+      "A single multiple-choice practice question with instant feedback. " +
+      "`options` is the answer list; `correctIndex` is the 0-based index of " +
+      "the correct option; `explanation` is revealed after answering. Use a " +
+      "Stack of QuizQuestions for a quiz.",
+    props: z.object({
+      question: stringOrPath,
+      options: z.array(z.string()),
+      correctIndex: z.number().int().min(0),
+      explanation: stringOrPath.optional(),
+    }),
+  },
+
+  ProgressTracker: {
+    description:
+      "Mastery bars, one per concept. `items` is a list of {label, value} " +
+      "where value is 0-100 percent mastered. Optional per-item tone. " +
+      "Path-bindable: bind `items` to a data-model array.",
+    props: z.object({
+      items: z.union([
+        z.array(
+          z.object({
+            label: z.string(),
+            value: z.number(),
+            tone: z.enum(["default", "positive", "warning"]).optional(),
+          }),
+        ),
+        z.object({ path: z.string() }),
+      ]),
+    }),
+  },
+
+  RateShockSimulator: {
+    description:
+      "Interactive bond interest-rate-risk simulator. The student drags a " +
+      "yield-change slider and sees the bond's actual repriced value vs the " +
+      "duration-only (linear) estimate and the duration+convexity estimate — " +
+      "teaching why duration under-predicts for large rate moves. All bond " +
+      "math is computed in the renderer from the params below.",
+    props: z.object({
+      title: stringOrPath.optional(),
+      faceValue: numberOrPath, // e.g. 1000
+      couponRate: numberOrPath, // annual coupon %, e.g. 9
+      maturityYears: numberOrPath, // e.g. 5
+      ytm: numberOrPath, // annual yield-to-maturity %, e.g. 9
+      frequency: numberOrPath.optional(), // coupons per year, default 2
+    }),
+  },
+
+  QuizGame: {
+    description:
+      "A scored, gamified quiz. Presents questions one at a time with points, " +
+      "a streak multiplier, and a final score screen. Use this (not a Stack of " +
+      "QuizQuestions) when the user wants to 'play', 'be tested', or compete. " +
+      "`questions` is path-bindable.",
+    props: z.object({
+      title: stringOrPath.optional(),
+      questions: z.union([
+        z.array(
+          z.object({
+            question: z.string(),
+            options: z.array(z.string()),
+            correctIndex: z.number().int().min(0),
+            explanation: z.string().optional(),
+          }),
+        ),
+        z.object({ path: z.string() }),
+      ]),
     }),
   },
 };

@@ -1,0 +1,140 @@
+[
+  {
+    "id": "root",
+    "component": "Stack",
+    "gap": "lg",
+    "children": [
+      "header-card",
+      "concept-chips",
+      "concept-section",
+      "simulator-section",
+      "quiz-section",
+      "progress-section",
+      "takeaway-callout"
+    ]
+  },
+
+  {
+    "id": "header-card",
+    "component": "Card",
+    "child": "header-stack"
+  },
+  {
+    "id": "header-stack",
+    "component": "Stack",
+    "gap": "sm",
+    "children": ["header-eyebrow", "header-heading", "header-text"]
+  },
+  { "id": "header-eyebrow", "component": "Overline", "text": { "path": "/eyebrow" } },
+  { "id": "header-heading", "component": "Heading", "level": "1", "text": { "path": "/title" } },
+  { "id": "header-text", "component": "Text", "tone": "muted", "text": { "path": "/subtitle" } },
+
+  {
+    "id": "concept-chips",
+    "component": "ChoiceChips",
+    "label": "Focus a concept",
+    "value": { "path": "/scope/selected" },
+    "options": { "path": "/scope/options" }
+  },
+
+  {
+    "id": "concept-section",
+    "component": "Section",
+    "eyebrow": "LECTURE 7",
+    "title": "Key concepts",
+    "child": "concept-grid"
+  },
+  {
+    "id": "concept-grid",
+    "component": "Grid",
+    "columns": 2,
+    "gap": "md",
+    "children": ["concept-1", "concept-2", "concept-3", "concept-4", "concept-5", "concept-6"]
+  },
+
+  { "id": "concept-1", "component": "Card", "child": "concept-1-stack" },
+  { "id": "concept-1-stack", "component": "Stack", "gap": "sm", "children": ["concept-1-name", "concept-1-def", "concept-1-badge"] },
+  { "id": "concept-1-name", "component": "Heading", "level": "3", "text": { "path": "/concepts/0/name" } },
+  { "id": "concept-1-def", "component": "Text", "tone": "muted", "size": "sm", "text": { "path": "/concepts/0/definition" } },
+  { "id": "concept-1-badge", "component": "Badge", "tone": "info", "label": { "path": "/concepts/0/difficulty" } },
+
+  { "id": "concept-2", "component": "Card", "child": "concept-2-stack" },
+  { "id": "concept-2-stack", "component": "Stack", "gap": "sm", "children": ["concept-2-name", "concept-2-def", "concept-2-badge"] },
+  { "id": "concept-2-name", "component": "Heading", "level": "3", "text": { "path": "/concepts/1/name" } },
+  { "id": "concept-2-def", "component": "Text", "tone": "muted", "size": "sm", "text": { "path": "/concepts/1/definition" } },
+  { "id": "concept-2-badge", "component": "Badge", "tone": "info", "label": { "path": "/concepts/1/difficulty" } },
+
+  { "id": "concept-3", "component": "Card", "child": "concept-3-stack" },
+  { "id": "concept-3-stack", "component": "Stack", "gap": "sm", "children": ["concept-3-name", "concept-3-def", "concept-3-badge"] },
+  { "id": "concept-3-name", "component": "Heading", "level": "3", "text": { "path": "/concepts/2/name" } },
+  { "id": "concept-3-def", "component": "Text", "tone": "muted", "size": "sm", "text": { "path": "/concepts/2/definition" } },
+  { "id": "concept-3-badge", "component": "Badge", "tone": "info", "label": { "path": "/concepts/2/difficulty" } },
+
+  { "id": "concept-4", "component": "Card", "child": "concept-4-stack" },
+  { "id": "concept-4-stack", "component": "Stack", "gap": "sm", "children": ["concept-4-name", "concept-4-def", "concept-4-badge"] },
+  { "id": "concept-4-name", "component": "Heading", "level": "3", "text": { "path": "/concepts/3/name" } },
+  { "id": "concept-4-def", "component": "Text", "tone": "muted", "size": "sm", "text": { "path": "/concepts/3/definition" } },
+  { "id": "concept-4-badge", "component": "Badge", "tone": "info", "label": { "path": "/concepts/3/difficulty" } },
+
+  { "id": "concept-5", "component": "Card", "child": "concept-5-stack" },
+  { "id": "concept-5-stack", "component": "Stack", "gap": "sm", "children": ["concept-5-name", "concept-5-def", "concept-5-badge"] },
+  { "id": "concept-5-name", "component": "Heading", "level": "3", "text": { "path": "/concepts/4/name" } },
+  { "id": "concept-5-def", "component": "Text", "tone": "muted", "size": "sm", "text": { "path": "/concepts/4/definition" } },
+  { "id": "concept-5-badge", "component": "Badge", "tone": "info", "label": { "path": "/concepts/4/difficulty" } },
+
+  { "id": "concept-6", "component": "Card", "child": "concept-6-stack" },
+  { "id": "concept-6-stack", "component": "Stack", "gap": "sm", "children": ["concept-6-name", "concept-6-def", "concept-6-badge"] },
+  { "id": "concept-6-name", "component": "Heading", "level": "3", "text": { "path": "/concepts/5/name" } },
+  { "id": "concept-6-def", "component": "Text", "tone": "muted", "size": "sm", "text": { "path": "/concepts/5/definition" } },
+  { "id": "concept-6-badge", "component": "Badge", "tone": "info", "label": { "path": "/concepts/5/difficulty" } },
+
+  {
+    "id": "simulator-section",
+    "component": "Section",
+    "eyebrow": "PLAY",
+    "title": "Feel the risk: rate-shock simulator",
+    "child": "simulator"
+  },
+  {
+    "id": "simulator",
+    "component": "RateShockSimulator",
+    "title": "9% coupon bond, 5-year",
+    "faceValue": { "path": "/bond/faceValue" },
+    "couponRate": { "path": "/bond/couponRate" },
+    "maturityYears": { "path": "/bond/maturityYears" },
+    "ytm": { "path": "/bond/ytm" },
+    "frequency": { "path": "/bond/frequency" }
+  },
+
+  {
+    "id": "quiz-section",
+    "component": "Section",
+    "eyebrow": "PLAY",
+    "title": "Test yourself",
+    "child": "quizgame"
+  },
+  {
+    "id": "quizgame",
+    "component": "QuizGame",
+    "title": "Interest Rate Risk",
+    "questions": { "path": "/quiz" }
+  },
+
+  {
+    "id": "progress-section",
+    "component": "Section",
+    "eyebrow": "STUDY",
+    "title": "Your mastery",
+    "child": "progress-card"
+  },
+  { "id": "progress-card", "component": "Card", "child": "progress-tracker" },
+  { "id": "progress-tracker", "component": "ProgressTracker", "items": { "path": "/progress" } },
+
+  {
+    "id": "takeaway-callout",
+    "component": "Callout",
+    "tone": "info",
+    "title": "Key takeaway",
+    "body": { "path": "/takeaway" }
+  }
+]

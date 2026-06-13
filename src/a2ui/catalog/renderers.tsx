@@ -1,7 +1,7 @@
 "use client";
 
 import { clsx } from "clsx";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Bar,
   BarChart as RBarChart,
@@ -1045,6 +1045,523 @@ const ChoiceChips = ({
   );
 };
 
+// ── Study components (Copilearn) ──────────────────────────────────────────
+// Flashcard and QuizQuestion keep their interactivity in LOCAL React state so
+// the UI responds instantly without a round-trip to the agent. We only use the
+// AG-UI `dispatch` channel when the *agent* genuinely needs to react.
+
+const Flashcard = ({
+  props,
+}: RendererProps<{ front: string; back: string; hint?: string }>) => {
+  const [flipped, setFlipped] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => setFlipped((f) => !f)}
+      className="group relative w-full min-h-[150px] text-left rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-5 transition hover:border-[var(--ink-2)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+    >
+      <span className="mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)]">
+        {flipped ? "Answer" : "Term"} · tap to flip
+      </span>
+      {flipped ? (
+        <p className="mt-3 text-[15px] leading-snug text-[var(--ink)]">
+          {props.back}
+        </p>
+      ) : (
+        <>
+          <p className="mt-3 text-[17px] font-semibold leading-snug text-[var(--ink)]">
+            {props.front}
+          </p>
+          {props.hint && (
+            <p className="mt-2 text-[12.5px] italic text-[var(--ink-2)]">
+              Hint: {props.hint}
+            </p>
+          )}
+        </>
+      )}
+    </button>
+  );
+};
+
+const QuizQuestion = ({
+  props,
+  dispatch,
+}: RendererProps<{
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation?: string;
+}>) => {
+  const [picked, setPicked] = useState<number | null>(null);
+  const answered = picked !== null;
+  const isCorrect = picked === props.correctIndex;
+
+  const choose = (i: number) => {
+    if (answered) return; // lock after first answer
+    setPicked(i);
+    // Optional: tell the agent so it *could* bump mastery. Feedback above is
+    // already shown client-side, so the demo never waits on this.
+    dispatch?.({
+      event: {
+        name: "quiz_answered",
+        context: { correct: i === props.correctIndex },
+      },
+    } as never);
+  };
+
+  return (
+    <div className="rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-5">
+      <p className="text-[15px] font-semibold leading-snug text-[var(--ink)]">
+        {props.question}
+      </p>
+      <div className="mt-3 flex flex-col gap-2">
+        {props.options.map((opt, i) => {
+          const correct = i === props.correctIndex;
+          // After answering: green for the right option, red for a wrong pick.
+          const state = !answered
+            ? "idle"
+            : correct
+              ? "correct"
+              : i === picked
+                ? "wrong"
+                : "muted";
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => choose(i)}
+              disabled={answered}
+              className={clsx(
+                "text-left text-[13.5px] px-3.5 py-2.5 rounded-[10px] border transition",
+                state === "idle" &&
+                  "border-[var(--line)] text-[var(--ink)] hover:border-[var(--ink-2)] cursor-pointer",
+                state === "correct" &&
+                  "border-[var(--mint)] bg-[color-mix(in_oklab,var(--mint)_14%,var(--surface))] text-[#0a5d44] font-medium",
+                state === "wrong" &&
+                  "border-[#e0b4b4] bg-[color-mix(in_oklab,#d66_12%,var(--surface))] text-[#8a2c2c] font-medium",
+                state === "muted" &&
+                  "border-[var(--line)] text-[var(--ink-2)] opacity-70",
+              )}
+            >
+              {opt}
+              {state === "correct" && <span className="ml-2">✓</span>}
+              {state === "wrong" && <span className="ml-2">✗</span>}
+            </button>
+          );
+        })}
+      </div>
+      {answered && (
+        <div className="mt-3 text-[13px] leading-snug">
+          <span
+            className={clsx(
+              "font-semibold",
+              isCorrect ? "text-[#0a5d44]" : "text-[#8a2c2c]",
+            )}
+          >
+            {isCorrect ? "Correct. " : "Not quite. "}
+          </span>
+          {props.explanation && (
+            <span className="text-[var(--ink-2)]">{props.explanation}</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+type ProgressItem = {
+  label: string;
+  value: number;
+  tone?: "default" | "positive" | "warning";
+};
+
+const ProgressTracker = ({
+  props,
+}: RendererProps<{ items: ProgressItem[] }>) => {
+  const items = Array.isArray(props.items) ? props.items : [];
+  const barColor = (tone: ProgressItem["tone"]) =>
+    tone === "positive"
+      ? "bg-[var(--mint)]"
+      : tone === "warning"
+        ? "bg-[var(--orange,#e8a33d)]"
+        : "bg-[var(--lilac)]";
+  return (
+    <div className="flex flex-col gap-3">
+      {items.map((it, i) => {
+        const pct = Math.max(0, Math.min(100, Number(it.value) || 0));
+        return (
+          <div key={i} className="flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-[var(--ink)]">{it.label}</span>
+              <span className="mono text-[11px] text-[var(--ink-2)]">
+                {pct}%
+              </span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-[var(--surface-soft,#eee)] overflow-hidden">
+              <div
+                className={clsx("h-full rounded-full transition-all duration-700", barColor(it.tone))}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ── RateShockSimulator (Copilearn signature widget, Lecture 7) ─────────────
+// Teaches interest-rate risk: move the yield slider and compare the bond's
+// ACTUAL repriced value against the duration-only (linear) estimate and the
+// duration+convexity estimate. All bond math is computed here from the params
+// so the agent only has to supply the bond, not the calculus.
+
+// Price a bond from periodic cashflows. Coupon every period; face added at n.
+function priceBond(
+  face: number,
+  couponPerPeriod: number,
+  yPeriod: number,
+  n: number,
+): number {
+  let pv = 0;
+  for (let t = 1; t <= n; t++) {
+    const cf = t === n ? couponPerPeriod + face : couponPerPeriod;
+    pv += cf / Math.pow(1 + yPeriod, t);
+  }
+  return pv;
+}
+
+const RateShockSimulator = ({
+  props,
+}: RendererProps<{
+  title?: string;
+  faceValue: number;
+  couponRate: number;
+  maturityYears: number;
+  ytm: number;
+  frequency?: number;
+}>) => {
+  const face = Number(props.faceValue) || 1000;
+  const couponRate = Number(props.couponRate) || 0;
+  const maturityYears = Number(props.maturityYears) || 1;
+  const ytm = Number(props.ytm) || 0;
+  const freq = Number(props.frequency) || 2;
+
+  // Δy in basis points (annual), controlled by the slider.
+  const [bps, setBps] = useState(0);
+
+  const n = Math.max(1, Math.round(maturityYears * freq));
+  const c = (face * (couponRate / 100)) / freq; // periodic coupon
+  const y = ytm / 100 / freq; // periodic yield
+
+  const price = priceBond(face, c, y, n);
+
+  // Macaulay duration (periods) and convexity (periods²) — slide-11/18 formulas.
+  let macP = 0;
+  let convP = 0;
+  for (let t = 1; t <= n; t++) {
+    const cf = t === n ? c + face : c;
+    const pv = cf / Math.pow(1 + y, t);
+    macP += t * pv;
+    convP += (t * t + t) * pv;
+  }
+  macP /= price;
+  convP /= price * Math.pow(1 + y, 2);
+
+  const macYears = macP / freq;
+  const modDurYears = macYears / (1 + y); // modified duration in years
+  const convYears = convP / (freq * freq); // convexity in years²
+
+  const dy = bps / 10000; // annual Δy as a decimal
+  const yNew = ytm / 100 + dy;
+  const priceNew = priceBond(face, c, yNew / freq, n);
+
+  const actualPct = (priceNew - price) / price; // true % change
+  const linPct = -modDurYears * dy; // duration-only estimate
+  const convPct = -modDurYears * dy + 0.5 * convYears * dy * dy; // + convexity
+
+  const fmtPct = (x: number) => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(2)}%`;
+  const fmtMoney = (x: number) =>
+    `$${x.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  const errLin = Math.abs(linPct - actualPct) * 100;
+
+  const Stat = ({ k, v }: { k: string; v: string }) => (
+    <div className="flex flex-col">
+      <span className="mono text-[10px] uppercase tracking-[0.12em] text-[var(--ink-2)]">
+        {k}
+      </span>
+      <span className="text-[15px] font-semibold text-[var(--ink)]">{v}</span>
+    </div>
+  );
+
+  const Est = ({
+    label,
+    pct,
+    tone,
+    note,
+  }: {
+    label: string;
+    pct: number;
+    tone: "actual" | "lin" | "conv";
+    note?: string;
+  }) => (
+    <div className="flex items-center justify-between rounded-[10px] border border-[var(--line)] px-3.5 py-2.5">
+      <div className="flex flex-col">
+        <span className="text-[13px] font-medium text-[var(--ink)]">
+          {label}
+        </span>
+        {note && (
+          <span className="text-[11px] text-[var(--ink-2)]">{note}</span>
+        )}
+      </div>
+      <span
+        className={clsx(
+          "mono text-[15px] font-semibold",
+          tone === "actual" && "text-[var(--ink)]",
+          tone === "lin" && "text-[#8a2c2c]",
+          tone === "conv" && "text-[#0a5d44]",
+        )}
+      >
+        {fmtPct(pct)}
+      </span>
+    </div>
+  );
+
+  return (
+    <div className="rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-5">
+      <div className="flex items-center justify-between">
+        <span className="text-[14px] font-semibold text-[var(--ink)]">
+          {props.title || "Rate-Shock Simulator"}
+        </span>
+        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--ink-2)]">
+          interest rate risk
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Stat
+          k="Bond"
+          v={`${couponRate}% · ${maturityYears}y`}
+        />
+        <Stat k="Price @ YTM" v={fmtMoney(price)} />
+        <Stat k="Mod. duration" v={`${modDurYears.toFixed(2)} yrs`} />
+        <Stat k="Convexity" v={convYears.toFixed(1)} />
+      </div>
+
+      <div className="mt-5">
+        <div className="flex items-center justify-between">
+          <span className="mono text-[11px] uppercase tracking-[0.12em] text-[var(--ink-2)]">
+            Yield change
+          </span>
+          <span className="mono text-[13px] font-semibold text-[var(--ink)]">
+            {bps >= 0 ? "+" : ""}
+            {bps} bps → YTM {(ytm + bps / 100).toFixed(2)}%
+          </span>
+        </div>
+        <input
+          type="range"
+          min={-400}
+          max={400}
+          step={25}
+          value={bps}
+          onChange={(e) => setBps(Number(e.target.value))}
+          className="mt-2 w-full accent-[var(--ink)]"
+        />
+        <div className="flex justify-between mono text-[10px] text-[var(--ink-2)]">
+          <span>-400</span>
+          <span>0</span>
+          <span>+400</span>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-2">
+        <Est
+          label="Actual repriced value"
+          pct={actualPct}
+          tone="actual"
+          note={`New price ${fmtMoney(priceNew)}`}
+        />
+        <Est
+          label="Duration estimate (linear)"
+          pct={linPct}
+          tone="lin"
+          note={`Off by ${errLin.toFixed(2)} pp`}
+        />
+        <Est
+          label="Duration + convexity"
+          pct={convPct}
+          tone="conv"
+          note="Adds the curvature correction"
+        />
+      </div>
+
+      <p className="mt-3 text-[12px] leading-snug text-[var(--ink-2)]">
+        Duration alone is a straight-line guess. The bigger the rate move, the
+        more it under-predicts the price — convexity adds the curve back.
+      </p>
+    </div>
+  );
+};
+
+// ── QuizGame (scored, gamified) ────────────────────────────────────────────
+type GameQ = {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation?: string;
+};
+
+const QuizGame = ({
+  props,
+}: RendererProps<{ title?: string; questions: GameQ[] }>) => {
+  const questions = Array.isArray(props.questions) ? props.questions : [];
+  const [idx, setIdx] = useState(0);
+  const [picked, setPicked] = useState<number | null>(null);
+  const [score, setScore] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [finished, setFinished] = useState(false);
+  const [correctCount, setCorrectCount] = useState(0);
+
+  if (questions.length === 0)
+    return (
+      <div className="rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-5 text-[13px] text-[var(--ink-2)]">
+        No questions yet.
+      </div>
+    );
+
+  const q = questions[Math.min(idx, questions.length - 1)];
+  const answered = picked !== null;
+
+  const reset = () => {
+    setIdx(0);
+    setPicked(null);
+    setScore(0);
+    setStreak(0);
+    setCorrectCount(0);
+    setFinished(false);
+  };
+
+  const choose = (i: number) => {
+    if (answered) return;
+    setPicked(i);
+    if (i === q.correctIndex) {
+      // Base 100 + a streak bonus rewards consecutive correct answers.
+      setScore((s) => s + 100 + streak * 25);
+      setStreak((st) => st + 1);
+      setCorrectCount((c) => c + 1);
+    } else {
+      setStreak(0);
+    }
+  };
+
+  const next = () => {
+    if (idx + 1 >= questions.length) {
+      setFinished(true);
+    } else {
+      setIdx((n) => n + 1);
+      setPicked(null);
+    }
+  };
+
+  if (finished) {
+    const pct = Math.round((correctCount / questions.length) * 100);
+    return (
+      <div className="rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-6 text-center">
+        <span className="mono text-[11px] uppercase tracking-[0.14em] text-[var(--ink-2)]">
+          Quiz complete
+        </span>
+        <div className="mt-2 text-[40px] font-bold text-[var(--ink)]">
+          {score}
+        </div>
+        <div className="text-[13px] text-[var(--ink-2)]">
+          {correctCount}/{questions.length} correct · {pct}%
+        </div>
+        <button
+          type="button"
+          onClick={reset}
+          className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-[10px] bg-[var(--ink)] text-white mono text-[12.5px] font-medium hover:bg-[#1d1d23] transition"
+        >
+          Play again
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-5">
+      <div className="flex items-center justify-between">
+        <span className="mono text-[11px] uppercase tracking-[0.12em] text-[var(--ink-2)]">
+          {props.title || "Quiz"} · Q{idx + 1}/{questions.length}
+        </span>
+        <div className="flex items-center gap-3">
+          {streak > 1 && (
+            <span className="mono text-[11px] text-[#b86a00]">
+              🔥 {streak} streak
+            </span>
+          )}
+          <span className="mono text-[13px] font-semibold text-[var(--ink)]">
+            {score} pts
+          </span>
+        </div>
+      </div>
+
+      <p className="mt-3 text-[15px] font-semibold leading-snug text-[var(--ink)]">
+        {q.question}
+      </p>
+      <div className="mt-3 flex flex-col gap-2">
+        {q.options.map((opt, i) => {
+          const correct = i === q.correctIndex;
+          const state = !answered
+            ? "idle"
+            : correct
+              ? "correct"
+              : i === picked
+                ? "wrong"
+                : "muted";
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => choose(i)}
+              disabled={answered}
+              className={clsx(
+                "text-left text-[13.5px] px-3.5 py-2.5 rounded-[10px] border transition",
+                state === "idle" &&
+                  "border-[var(--line)] text-[var(--ink)] hover:border-[var(--ink-2)] cursor-pointer",
+                state === "correct" &&
+                  "border-[var(--mint)] bg-[color-mix(in_oklab,var(--mint)_14%,var(--surface))] text-[#0a5d44] font-medium",
+                state === "wrong" &&
+                  "border-[#e0b4b4] bg-[color-mix(in_oklab,#d66_12%,var(--surface))] text-[#8a2c2c] font-medium",
+                state === "muted" &&
+                  "border-[var(--line)] text-[var(--ink-2)] opacity-70",
+              )}
+            >
+              {opt}
+              {state === "correct" && <span className="ml-2">✓</span>}
+              {state === "wrong" && <span className="ml-2">✗</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {answered && (
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <span className="text-[12.5px] leading-snug text-[var(--ink-2)] flex-1">
+            {q.explanation}
+          </span>
+          <button
+            type="button"
+            onClick={next}
+            className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-[10px] bg-[var(--ink)] text-white mono text-[12px] font-medium hover:bg-[#1d1d23] transition"
+          >
+            {idx + 1 >= questions.length ? "Finish" : "Next →"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 function Slot({ render }: { render: ReactNode }) {
   return <>{render}</>;
 }
@@ -1071,4 +1588,9 @@ export const renderers = {
   DataTable,
   Button,
   ChoiceChips,
+  Flashcard,
+  QuizQuestion,
+  ProgressTracker,
+  RateShockSimulator,
+  QuizGame,
 };

@@ -139,23 +139,31 @@ Return ONLY the JSON object.
 
 @tool
 def query_pdf(pdf_text: str, question: str) -> str:
-    """Answer a user question about the PDF and return ONLY structured data
-    that the dynamic agent can then render as a UI surface.
+    """Answer a study question about the lecture PDF and return ONLY structured
+    data the dynamic agent can render as a study surface.
 
-    Returns a JSON object: { "shape_hint": "stat|trend|share|table|text",
+    Returns a JSON object: { "shape_hint":
+                             "flashcards|quiz|text|stat|trend|share|table",
                              "title": "...", "summary": "...",
                              "data": <shape-appropriate payload> }
     The shape_hint is advice. The agent makes the final layout decision.
     """
     sys = (
-        "You are an analyst answering a question about a PDF. Return ONLY a "
-        "JSON object describing the answer as structured data. No prose, no "
-        "markdown fences. Pick the most natural shape for the answer:\n"
-        "- 'stat'  → { value, delta?, caption? }  for single-metric answers\n"
-        "- 'trend' → [{label, value}, ...]        for time-series\n"
-        "- 'share' → [{label, value}, ...]        for breakdowns / shares\n"
+        "You are a study coach building learning material from a lecture. "
+        "Return ONLY a JSON object describing the answer as structured data. "
+        "No prose, no markdown fences. Pick the shape that fits the request:\n"
+        "- 'flashcards' → [{front, back, hint?}, ...] (6-10) when the user "
+        "wants flashcards / to memorize terms. front=term, back=definition.\n"
+        "- 'quiz' → [{question, options:[str x4], correctIndex:int, "
+        "explanation}, ...] (4-6) when the user wants to be quizzed / tested. "
+        "correctIndex is the 0-based index of the right option.\n"
+        "- 'text'  → string  for explanations / 'explain X' narrative answers\n"
+        "- 'stat'  → { value, delta?, caption? }  for a single number\n"
+        "- 'trend' → [{label, value}, ...]        for a time-series\n"
+        "- 'share' → [{label, value}, ...]        for a breakdown\n"
         "- 'table' → { columns:[{key,label}], rows:[{...}] }  for lists\n"
-        "- 'text'  → string                       for narrative answers\n"
+        "Base everything on the lecture content. For quizzes, write plausible "
+        "wrong options (distractors), not obvious throwaways."
     )
     user = f"""\
 Question: {question}
@@ -167,7 +175,7 @@ PDF text (truncated):
 
 Return JSON shaped like:
 {{
-  "shape_hint": "stat|trend|share|table|text",
+  "shape_hint": "flashcards|quiz|text|stat|trend|share|table",
   "title": "...",
   "summary": "...",
   "data": <payload above>

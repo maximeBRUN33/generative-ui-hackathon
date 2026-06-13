@@ -30,33 +30,26 @@ from langgraph.checkpoint.memory import MemorySaver
 from src.catalog import CATALOG_ID, CATALOG_PROMPT
 
 SCHEMA_DIR = Path(__file__).parent / "a2ui" / "schemas"
-DASHBOARD_SCHEMA = a2ui.load_schema(SCHEMA_DIR / "dashboard.json")
-SURFACE = "pdf-dashboard"
+WORKSPACE_SCHEMA = a2ui.load_schema(SCHEMA_DIR / "workspace.json")
+SURFACE = "study-workspace"
 
 
-# NOTE (Gemini typed-array fix): every list parameter on render_dashboard
+# NOTE (Gemini typed-array fix): every list parameter on render_workspace
 # below is typed as `list[<TypedDict>]`, NOT `list[dict]`. Gemini's
 # function-declaration validator rejects untyped arrays with
 # "parameters.properties[X].items: missing field". A TypedDict compiles to a
 # concrete object schema, so these arrays carry the `items` Gemini requires.
 # Keep them typed — do not loosen to `list[dict]`.
-class Kpi(TypedDict):
-    label: str
-    value: str
-    delta: str
-    caption: str
+class Concept(TypedDict):
+    name: str
+    definition: str
+    difficulty: str
 
 
-class Point(TypedDict):
+class Progress(TypedDict):
     label: str
     value: float
-
-
-class Row(TypedDict):
-    name: str
-    category: str
-    value: str
-    delta: str
+    tone: str
 
 
 class ScopeOption(TypedDict):
@@ -64,128 +57,154 @@ class ScopeOption(TypedDict):
     value: str
 
 
+class QuizItem(TypedDict):
+    question: str
+    options: list[str]
+    correctIndex: int
+    explanation: str
+
+
 @tool
-def render_dashboard(
+def render_workspace(
     eyebrow: str,
     title: str,
     subtitle: str,
-    kpis: list[Kpi],
-    trend: list[Point],
-    share: list[Point],
-    rows: list[Row],
+    concepts: list[Concept],
+    progress: list[Progress],
+    takeaway: str,
     scope_options: list[ScopeOption],
     scope_selected: str,
+    bond_face_value: float,
+    bond_coupon_rate: float,
+    bond_maturity_years: float,
+    bond_ytm: float,
+    bond_frequency: int,
+    quiz: list[QuizItem],
 ) -> str:
-    """Render the interactive dashboard for the loaded PDF.
+    """Render the interactive study + game workspace for the lecture PDF.
 
+    This is Copilearn's learning environment: concept cards, a mastery
+    tracker, an interactive rate-shock simulator, and a scored quiz game.
     Pass data INLINE. Call ONCE per turn.
 
     Required shapes:
-      - kpis: EXACTLY 4 cards. Each {label, value, delta, caption}.
+      - concepts: EXACTLY 6 cards. Each {name, definition, difficulty}.
+          * `name`       = the concept/term, short. <= 5 words.
+          * `definition` = a plain-language, student-friendly explanation in
+                           1–2 sentences. Make it genuinely clear.
+          * `difficulty` = ONE word badge: "Core", "Intermediate", or
+                           "Advanced".
+        If the lecture has fewer than 6 headline concepts, split the richest
+        ones so you always return exactly 6.
 
-        STRICT FIELD RULES (very important; the badge breaks if you ignore):
-          * `value`   = the headline number, formatted ("$94,930M", "23.4%",
-                        "1.2M units"). 1–8 chars typically.
-          * `delta`   = JUST the magnitude of change. Format: "+X%", "-X%",
-                        or "" (empty string when there's no comparison).
-                        MAX 8 chars. NEVER prose. NEVER "vs. last quarter"
-                        or "vs. $89,498M". The arrow and color come from
-                        the renderer.
-                        Examples: "+6.1%", "-3%", "+12%", "+$2.4B", ""
-                        Bad:      "↑ vs. $89,498M in Q4 FY23"
-                                  "up 6% YoY"
-                                  "increased from $89,498M"
-          * `caption` = the comparison/context sentence ("vs. $89,498M in
-                        Q4 FY23", "Products $69,958M; Services $24,972M",
-                        "All-time high"). Up to ~80 chars. This is where
-                        the prose goes.
+      - progress: ONE entry PER concept (6), SAME order. {label, value, tone}.
+          * `value` = mastery percent 0–100. On the FIRST render set every
+                      value to 0 (nothing mastered yet).
+          * `tone`  = "default" | "positive" | "warning".
 
-      - trend: 6–12 points. {label, value:number}.
-      - share: 3–5 slices. {label, value:number}.
-      - rows: 5–8 table rows. Same delta rule applies: row.delta is
-        SHORT ("+6%", "-3%", ""). Verbose comparisons belong elsewhere.
-      - scope_options: 3–6 chips the user can click to re-scope. Each
-        {label, value}. Example for an Apple earnings PDF:
-          [{label:"Q4 FY24", value:"q4_fy24"},
-           {label:"FY24",    value:"fy24"},
-           {label:"By segment", value:"by_segment"},
-           {label:"By region",  value:"by_region"}]
-        Tailor the options to what THIS document actually supports.
-      - scope_selected: the `value` of the currently active option.
+      - takeaway: ONE sentence — the single most important idea.
+
+      - scope_options: an "Overview" chip plus one per major concept.
+      - scope_selected: "overview" on first render; else the clicked value.
+
+      - bond_*: parameters for the rate-shock simulator, taken from the
+        lecture's worked bond example if it has one (else a representative
+        bond). couponRate and ytm are ANNUAL percents (e.g. 9 for 9%).
+        bond_frequency = coupons per year (2 for semi-annual).
+
+      - quiz: 4–6 multiple-choice questions for the scored game. Each
+        {question, options (4 strings), correctIndex (0-based), explanation}.
+        Write plausible distractors and test real understanding of the
+        lecture. correctIndex MUST point at the right option.
     """
     payload = {
         "eyebrow": eyebrow,
         "title": title,
         "subtitle": subtitle,
-        "kpis": kpis,
-        "trend": trend,
-        "share": share,
-        "rows": rows,
+        "concepts": concepts,
+        "progress": progress,
+        "takeaway": takeaway,
         "scope": {"options": scope_options, "selected": scope_selected},
+        "bond": {
+            "faceValue": bond_face_value,
+            "couponRate": bond_coupon_rate,
+            "maturityYears": bond_maturity_years,
+            "ytm": bond_ytm,
+            "frequency": bond_frequency,
+        },
+        "quiz": quiz,
     }
     return a2ui.render(
         operations=[
             a2ui.create_surface(SURFACE, catalog_id=CATALOG_ID),
-            a2ui.update_components(SURFACE, DASHBOARD_SCHEMA),
+            a2ui.update_components(SURFACE, WORKSPACE_SCHEMA),
             a2ui.update_data_model(SURFACE, payload),
         ]
     )
 
 
 SYSTEM_PROMPT = f"""\
-You build and maintain a live dashboard from the user's PDF.
+You are Copilearn, a study coach. You turn a student's lecture slides (a PDF)
+into a live study + game workspace: the key concepts, plain-language
+definitions, a mastery tracker, an interactive rate-shock simulator, and a
+scored quiz game.
+
+This deployment is focused on a finance "Interest Rate Risk" lecture (bonds,
+price–yield relationship, Macaulay & modified duration, convexity,
+immunization, price vs reinvestment risk). Teach it clearly to an audience
+that may be new to bonds.
 
 ## How a turn works
 
 The user may do three things on any turn:
-  A) Attach a new PDF + chat (initial render).
-  B) Send a chat message ("re-render focused on energy storage",
-     "what was operating margin?", "compare last quarter").
-  C) Click a scope chip on the dashboard. The runtime delivers this as a
+  A) Attach a new lecture PDF + chat (initial render).
+  B) Send a chat message ("focus on convexity", "explain duration in plain
+     English", "why does immunization work?").
+  C) Click a concept chip on the workspace. The runtime delivers this as a
      tool result `log_a2ui_event` with content like:
-        User performed action "select_chip" on surface "pdf-dashboard".
-        Context: {{"value": "fy24", "label": "Scope"}}
+        User performed action "select_chip" on surface "study-workspace".
+        Context: {{"value": "convexity", "label": "Focus a concept"}}
 
-In every case, decide whether to re-render the dashboard, answer in chat,
+In every case, decide whether to re-render the workspace, answer in chat,
 or both.
 
 ## The render contract
 
-When you render, call `render_dashboard(...)` ONCE with structured data:
-  - 4 KPIs, 6–12 trend points, 3–5 share slices, 5–8 rows.
-  - `scope_options`: 3–6 chips tailored to THIS PDF. Examples of good
-    chip sets:
-      - Apple Q4 PDF → [Q4 FY24, FY24, By segment, By region, By category]
-      - Tesla Q3 PDF → [Q3 '24, By model, By region, Automotive vs Energy,
-                       Trailing 4 quarters]
-  - `scope_selected`: which chip is active. Default to the most natural
-    starting scope for the document. After a chip click, set this to the
-    clicked value.
+When you render, call `render_workspace(...)` ONCE with structured data:
+  - EXACTLY 6 concepts {{name, definition, difficulty}}.
+  - `progress`: one per concept (6), same order, value 0 on first render.
+  - `takeaway`: the single most important idea, one sentence.
+  - `scope_options`: an "Overview" chip plus one per major concept.
+  - `scope_selected`: "overview" on first render; else the clicked value.
+  - bond_* : the lecture's worked bond if it has one (e.g. a 9% coupon,
+    5-year, semi-annual bond at 9% YTM → face 1000, coupon 9, maturity 5,
+    ytm 9, frequency 2). couponRate/ytm are ANNUAL percents.
+  - quiz: 4–6 scored multiple-choice questions drawn from the lecture, with
+    good distractors and a one-line explanation each.
 
-When the user (or a chip click) asks to change scope:
-  - Re-extract the data for the new scope from the PDF text.
-  - Re-call render_dashboard with the SAME surfaceId so the canvas
-    updates in place. The scope_selected reflects the new active chip.
+When the user (or a chip click) focuses a concept:
+  - Re-call render_workspace with the SAME surfaceId. Keep the 6 concepts but
+    rewrite the FOCUSED concept's definition to be deeper, and set
+    scope_selected to the focused value. Keep bond_* and quiz stable across
+    re-renders unless the user asks to change them.
 
 ## Hard rules
 
-- Render the dashboard whenever the user attaches a PDF (initial), asks
-  to re-render in any way, or clicks a chip.
-- Call `render_dashboard` AT MOST ONCE per turn. Never twice.
-- Use ONLY numbers that actually appear in the document.
-- If the user asks an analytical question that does NOT require a layout
-  change (e.g. "what was operating margin?"), answer in chat without
-  re-rendering. 1–3 sentences max. Cite the number.
-- If the user wants to invent a brand-new visualization not covered by
-  the fixed schema (e.g. "show a sankey diagram"), tell them to use the
-  Dynamic tab.
+- Render the workspace whenever the user attaches a PDF (initial), asks to
+  re-focus, or clicks a chip.
+- Call `render_workspace` AT MOST ONCE per turn. Never twice.
+- Teach from what is ACTUALLY in the lecture. Definitions must be clear and
+  beginner-friendly (assume the audience does not know bonds).
+- If the user asks a quick conceptual question that does NOT need a layout
+  change, answer in chat (1–3 sentences, plain language) without re-rendering.
+- For ad-hoc flashcards or a one-off quiz, point them to "Study tools" (the
+  Dynamic tab).
 
 ## Chat tone
 
-Be helpful, brief, conversational. After the first render, you can
-suggest one or two follow-ups the user might click ("Tap *FY24* for the
-full-year view" or "Want me to break it down by segment?"). Don't list
-more than two suggestions.
+Warm, encouraging, brief — like a good TA. After the first render, suggest
+one or two next steps ("Drag the simulator's slider to +400 bps and watch
+duration miss" or "Tap *Convexity* for the deeper version"). Max two.
 
 {CATALOG_PROMPT}
 """
@@ -217,11 +236,11 @@ def build_fixed_agent():
         # updateComponents + updateDataModel wrapped in a2ui_operations).
         from src.offline_fixed import build_offline_fixed_agent
 
-        return build_offline_fixed_agent(render_dashboard, SYSTEM_PROMPT)
+        return build_offline_fixed_agent(render_workspace, SYSTEM_PROMPT)
 
     return create_agent(
         model=_build_model(),
-        tools=[render_dashboard],
+        tools=[render_workspace],
         # CopilotKitMiddleware forwards frontend tools + agent context (e.g.
         # useAgentContext payloads) to the LLM.
         middleware=[CopilotKitMiddleware()],

@@ -13,7 +13,7 @@ import { catalog, CATALOG_ID } from "@/a2ui/catalog";
  * how the agent emits surfaces over the wire so the showcase doubles as
  * a sanity check on the catalog. */
 type Example = {
-  group: "layout" | "content" | "data" | "interactive";
+  group: "layout" | "content" | "data" | "interactive" | "study";
   name: string;
   blurb: string;
   surface: {
@@ -566,6 +566,120 @@ const EXAMPLES: Example[] = [
       data: { regions: ["na", "emea"] },
     },
   },
+  {
+    group: "study",
+    name: "Flashcard",
+    blurb:
+      "Click-to-flip study card. Front shows the term, tap to reveal the definition. Compose a Grid of them for a deck.",
+    surface: {
+      components: [
+        {
+          id: "root",
+          component: "Flashcard",
+          front: "Modified duration",
+          back: "Macaulay duration ÷ (1 + y). It estimates a bond's % price change for a small yield move: ΔB/B ≈ −D* × Δy.",
+          hint: "Always a bit smaller than Macaulay duration.",
+        },
+      ],
+    },
+  },
+  {
+    group: "study",
+    name: "QuizQuestion",
+    blurb:
+      "Multiple-choice practice question with instant feedback and an explanation. Stack several for a quiz.",
+    surface: {
+      components: [
+        {
+          id: "root",
+          component: "QuizQuestion",
+          question: "When market interest rates rise, a bond's price…",
+          options: ["Rises", "Falls", "Is unchanged", "Doubles"],
+          correctIndex: 1,
+          explanation:
+            "Bond prices move inversely to yields — higher rates make existing bonds worth less.",
+        },
+      ],
+    },
+  },
+  {
+    group: "study",
+    name: "ProgressTracker",
+    blurb:
+      "Mastery bars, one per concept (0–100%). Path-bindable so the agent can fill it from extracted data.",
+    surface: {
+      components: [
+        {
+          id: "root",
+          component: "ProgressTracker",
+          items: { path: "/progress" },
+        },
+      ],
+      data: {
+        progress: [
+          { label: "Price–yield", value: 80, tone: "positive" },
+          { label: "Duration", value: 55, tone: "default" },
+          { label: "Convexity", value: 30, tone: "warning" },
+          { label: "Immunization", value: 10, tone: "default" },
+        ],
+      },
+    },
+  },
+  {
+    group: "study",
+    name: "RateShockSimulator",
+    blurb:
+      "Interactive bond interest-rate-risk simulator. Drag the yield slider to compare the actual repriced value against the duration-only and duration+convexity estimates. All bond math is computed in the widget.",
+    surface: {
+      components: [
+        {
+          id: "root",
+          component: "RateShockSimulator",
+          title: "9% coupon bond, 5-year",
+          faceValue: 1000,
+          couponRate: 9,
+          maturityYears: 5,
+          ytm: 9,
+          frequency: 2,
+        },
+      ],
+    },
+  },
+  {
+    group: "study",
+    name: "QuizGame",
+    blurb:
+      "A scored, gamified quiz: one question at a time with points, a streak bonus, and a final score screen. Use it when the user wants to play or compete.",
+    surface: {
+      components: [
+        {
+          id: "root",
+          component: "QuizGame",
+          title: "Interest Rate Risk",
+          questions: [
+            {
+              question:
+                "If market interest rates rise, what happens to an existing bond's price?",
+              options: ["It rises", "It falls", "No change", "It goes to par"],
+              correctIndex: 1,
+              explanation: "Prices move inversely to yields.",
+            },
+            {
+              question: "Which bond is MOST sensitive to rate changes?",
+              options: [
+                "Short maturity, high coupon",
+                "Long maturity, low coupon",
+                "Short maturity, low coupon",
+                "Long maturity, high coupon",
+              ],
+              correctIndex: 1,
+              explanation: "Longer maturity and lower coupon → more sensitive.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 const GROUPS: { key: Example["group"]; label: string }[] = [
@@ -573,6 +687,7 @@ const GROUPS: { key: Example["group"]; label: string }[] = [
   { key: "content", label: "Content" },
   { key: "data", label: "Data viz" },
   { key: "interactive", label: "Interactive" },
+  { key: "study", label: "Study" },
 ];
 
 export default function CatalogPage() {

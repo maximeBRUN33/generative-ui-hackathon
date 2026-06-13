@@ -79,9 +79,9 @@ export default function FixedPage() {
                 }}
                 labels={{
                   chatInputPlaceholder:
-                    "Attach a PDF (📎), then ask to render the dashboard…",
+                    "Attach lecture slides (📎), then ask to build the workspace…",
                   welcomeMessageText:
-                    "Attach a PDF using the 📎 button, then ask: “Render the dashboard.”",
+                    "Attach your lecture PDF using the 📎 button, then ask: “Build my study workspace.”",
                 }}
               />
             </div>
@@ -92,11 +92,11 @@ export default function FixedPage() {
             channel={AGENT_ID}
             emptyState={
               <CanvasEmptyState
-                title="Canvas is empty"
-                subtitle="Attach a PDF in the chat (📎 in the input toolbar) and ask the agent to render the dashboard. The rendered A2UI surface will fill this canvas."
+                title="Your workspace is empty"
+                subtitle="Attach a lecture PDF in the chat (📎 in the input toolbar) and ask the agent to build your study workspace. The generated A2UI surface — concepts, definitions, and a mastery tracker — will fill this canvas."
                 hint={
                   <span className="mono text-[11px] uppercase tracking-[0.14em] text-[var(--ink)]">
-                    try: “Render the dashboard.”
+                    try: “Build my study workspace.”
                   </span>
                 }
               />

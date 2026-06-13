@@ -1,126 +1,130 @@
-"""Canned dashboard inputs for OFFLINE=1 mode.
+"""Canned study+game workspace for OFFLINE=1 mode — Copilearn, Lecture 7.
 
-When OFFLINE=1 is set, the /fixed agent serves a deterministic sample
-dashboard with NO Gemini call and no API key (see fixed_agent.py). These
-args are passed verbatim to `render_dashboard(**OFFLINE_DASHBOARD_ARGS)`,
-so they MUST satisfy that tool's typed inputs:
+When OFFLINE=1 is set, the /fixed agent serves this deterministic Interest
+Rate Risk workspace with NO Gemini call and no API key (see fixed_agent.py).
+This is the bulletproof stage demo: the app opens straight to the Lecture 7
+learning environment (concepts + mastery tracker + rate-shock simulator +
+scored quiz) with no upload and no key required.
 
-  - eyebrow / title / subtitle: str
-  - kpis: EXACTLY 4 × {label, value, delta, caption}     (Kpi)
-  - trend: 6-12 × {label, value: float}                  (Point)
-  - share: 3-5 × {label, value: float}                   (Point)
-  - rows: 5-8 × {name, category, value, delta}           (Row)
-  - scope_options: 3-6 × {label, value}                  (ScopeOption)
-  - scope_selected: str (one of scope_options' values)
-
-Dataset: a realistic Tesla Q3 FY24 earnings snapshot. The numbers are
-illustrative-but-plausible (revenue / deliveries / margin / EPS, a
-trailing revenue trend, an automotive-vs-energy share, and a regional /
-segment row table). The system prompt in fixed_agent.py already cites
-"Tesla Q3 '24" as a canonical scope-chip example, so this fixture mirrors
-that shape.
+These args are passed verbatim to `render_workspace(**OFFLINE_WORKSPACE_ARGS)`,
+so they MUST satisfy that tool's typed inputs (Concept / Progress /
+ScopeOption / QuizItem + the bond_* scalars). Content is drawn from the RSM
+BMOFI Investments "Interest Rate Risk" lecture (Dr. Vincenzo F. Fabrizio).
 """
 from __future__ import annotations
 
 from typing import Any
 
-# Keep this a plain dict of JSON-ish primitives so it round-trips cleanly as
-# tool-call args and through a2ui.render(...). Field names match the
-# TypedDicts in fixed_agent.py (Kpi / Point / Row / ScopeOption) exactly.
-OFFLINE_DASHBOARD_ARGS: dict[str, Any] = {
-    "eyebrow": "Q3 FY24 · EARNINGS SNAPSHOT",
-    "title": "Tesla Q3 FY24 Performance",
-    "subtitle": "Revenue, deliveries, and margin for the quarter ended Sep 30, 2024.",
-    "kpis": [
+OFFLINE_WORKSPACE_ARGS: dict[str, Any] = {
+    "eyebrow": "INVESTMENTS · LECTURE 7",
+    "title": "Interest Rate Risk",
+    "subtitle": "Why bond prices move with rates — and how duration, convexity, and immunization tame the risk.",
+    "concepts": [
         {
-            "label": "Total revenue",
-            "value": "$25.18B",
-            "delta": "+8%",
-            "caption": "vs. $23.35B in Q3 FY23",
+            "name": "Price–yield relationship",
+            "definition": "Bond prices move inversely to interest rates. When market yields rise, the price of an existing bond falls; when yields fall, its price rises.",
+            "difficulty": "Core",
         },
         {
-            "label": "Vehicle deliveries",
-            "value": "462,890",
-            "delta": "+6%",
-            "caption": "vs. 435,059 in Q3 FY23",
+            "name": "What drives sensitivity",
+            "definition": "A bond's price reacts MORE to rate changes when its maturity is longer, its coupon is lower, and its starting yield (YTM) is lower.",
+            "difficulty": "Core",
         },
         {
-            "label": "Operating margin",
-            "value": "10.8%",
-            "delta": "+3.0pp",
-            "caption": "vs. 7.6% in Q3 FY23",
+            "name": "Macaulay duration",
+            "definition": "The weighted-average time to receive a bond's cash flows — one number that captures its 'effective maturity' and its sensitivity to rates.",
+            "difficulty": "Intermediate",
         },
         {
-            "label": "Diluted EPS (GAAP)",
-            "value": "$0.62",
-            "delta": "+17%",
-            "caption": "vs. $0.53 in Q3 FY23",
-        },
-    ],
-    # Trailing-quarter total revenue ($B). 8 points (within the 6-12 range).
-    "trend": [
-        {"label": "Q4 '22", "value": 24.32},
-        {"label": "Q1 '23", "value": 23.33},
-        {"label": "Q2 '23", "value": 24.93},
-        {"label": "Q3 '23", "value": 23.35},
-        {"label": "Q4 '23", "value": 25.17},
-        {"label": "Q1 '24", "value": 21.30},
-        {"label": "Q2 '24", "value": 25.50},
-        {"label": "Q3 '24", "value": 25.18},
-    ],
-    # Revenue share by business line ($B). 4 slices (within the 3-5 range).
-    "share": [
-        {"label": "Automotive", "value": 20.02},
-        {"label": "Energy gen. & storage", "value": 2.38},
-        {"label": "Services & other", "value": 2.79},
-        {"label": "Regulatory credits", "value": 0.74},
-    ],
-    # Segment / regional breakdown. 6 rows (within the 5-8 range).
-    "rows": [
-        {
-            "name": "Automotive",
-            "category": "Segment",
-            "value": "$20.02B",
-            "delta": "+2%",
+            "name": "Modified duration",
+            "definition": "Duration divided by (1 + y). It estimates the % price change for a small yield move: ΔB/B ≈ −D* × Δy.",
+            "difficulty": "Intermediate",
         },
         {
-            "name": "Energy generation & storage",
-            "category": "Segment",
-            "value": "$2.38B",
-            "delta": "+52%",
+            "name": "Convexity",
+            "definition": "The curvature of the price–yield line. Duration's straight-line estimate under-predicts price for large moves; convexity adds the correction back.",
+            "difficulty": "Advanced",
         },
         {
-            "name": "Services & other",
-            "category": "Segment",
-            "value": "$2.79B",
-            "delta": "+29%",
-        },
-        {
-            "name": "United States",
-            "category": "Region",
-            "value": "$12.10B",
-            "delta": "+11%",
-        },
-        {
-            "name": "China",
-            "category": "Region",
-            "value": "$4.67B",
-            "delta": "-4%",
-        },
-        {
-            "name": "Other international",
-            "category": "Region",
-            "value": "$8.41B",
-            "delta": "+9%",
+            "name": "Immunization",
+            "definition": "Match the duration of your assets to your liabilities (or your horizon) so price risk and reinvestment risk offset — rate moves no longer hurt you.",
+            "difficulty": "Advanced",
         },
     ],
-    # Scope chips tailored to a Tesla quarterly PDF (3-6 chips).
+    "progress": [
+        {"label": "Price–yield relationship", "value": 0, "tone": "default"},
+        {"label": "What drives sensitivity", "value": 0, "tone": "default"},
+        {"label": "Macaulay duration", "value": 0, "tone": "default"},
+        {"label": "Modified duration", "value": 0, "tone": "default"},
+        {"label": "Convexity", "value": 0, "tone": "default"},
+        {"label": "Immunization", "value": 0, "tone": "default"},
+    ],
+    "takeaway": "Interest-rate risk comes down to one number — duration — and one correction — convexity; match duration to your horizon to neutralize it.",
     "scope_options": [
-        {"label": "Q3 '24", "value": "q3_fy24"},
-        {"label": "By segment", "value": "by_segment"},
-        {"label": "By region", "value": "by_region"},
-        {"label": "Automotive vs Energy", "value": "auto_vs_energy"},
-        {"label": "Trailing 4 quarters", "value": "trailing_4q"},
+        {"label": "Overview", "value": "overview"},
+        {"label": "Price–Yield", "value": "price_yield"},
+        {"label": "Duration", "value": "duration"},
+        {"label": "Convexity", "value": "convexity"},
+        {"label": "Immunization", "value": "immunization"},
     ],
-    "scope_selected": "q3_fy24",
+    "scope_selected": "overview",
+    # The lecture's worked bond: 9% coupon, $1000 face, 5 years, semi-annual,
+    # YTM 9% (prices at par; Macaulay duration ≈ 8.27 half-years ≈ 4.13 years).
+    "bond_face_value": 1000,
+    "bond_coupon_rate": 9,
+    "bond_maturity_years": 5,
+    "bond_ytm": 9,
+    "bond_frequency": 2,
+    "quiz": [
+        {
+            "question": "If market interest rates rise, what happens to the price of an existing bond?",
+            "options": ["It rises", "It falls", "It stays the same", "It always goes to par"],
+            "correctIndex": 1,
+            "explanation": "Bond prices move inversely to yields — higher rates make existing, lower-coupon bonds worth less.",
+        },
+        {
+            "question": "Which bond is MOST sensitive to a change in interest rates?",
+            "options": [
+                "Short maturity, high coupon",
+                "Long maturity, low coupon",
+                "Short maturity, low coupon",
+                "Long maturity, high coupon",
+            ],
+            "correctIndex": 1,
+            "explanation": "Sensitivity rises with longer maturity and lower coupons (and lower starting YTM).",
+        },
+        {
+            "question": "Macaulay duration measures…",
+            "options": [
+                "A bond's credit risk",
+                "The weighted-average time to its cash flows",
+                "The coupon rate",
+                "The probability of default",
+            ],
+            "correctIndex": 1,
+            "explanation": "Duration is the weighted-average time to receive the bond's cash flows — its 'effective maturity'.",
+        },
+        {
+            "question": "Modified duration gives a price-change estimate, but…",
+            "options": [
+                "It is always exact",
+                "It under-predicts the price for large yield moves",
+                "It only works for zero-coupon bonds",
+                "It ignores time to maturity",
+            ],
+            "correctIndex": 1,
+            "explanation": "It's a linear (straight-line) approximation; convexity corrects the error as moves get larger.",
+        },
+        {
+            "question": "Immunizing a portfolio against interest-rate risk means…",
+            "options": [
+                "Holding only cash",
+                "Matching asset duration to the liability or investment horizon",
+                "Buying the highest-convexity bond available",
+                "Avoiding bonds entirely",
+            ],
+            "correctIndex": 1,
+            "explanation": "Matching durations makes price risk and reinvestment risk offset, locking in the realized yield.",
+        },
+    ],
 }

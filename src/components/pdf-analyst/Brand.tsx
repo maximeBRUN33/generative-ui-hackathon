@@ -7,19 +7,26 @@
 // logo asset in public/brand/, rename the product, rewrite the hero copy.
 // Brand tints come from src/app/(pdf)/pdf-analyst.css (Seam #1).
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-import Image from "next/image";
 import Link from "next/link";
 
+// Copilearn wordmark. A text mark keeps branding in code (no SVG asset to
+// ship) and re-themes automatically via the brand tokens in pdf-analyst.css.
 export function Logo({ size = 22 }: { size?: number }) {
   return (
-    <Image
-      src="/brand/logo-full.svg"
-      alt="CopilotKit"
-      width={size * 5}
-      height={size}
-      priority
-      style={{ height: size, width: "auto" }}
-    />
+    <span className="flex items-center gap-2" style={{ height: size }}>
+      <span
+        className="grid place-items-center rounded-[7px] bg-[var(--ink)] text-white font-bold"
+        style={{ width: size, height: size, fontSize: size * 0.5 }}
+      >
+        C
+      </span>
+      <span
+        className="font-semibold tracking-tight text-[var(--ink)]"
+        style={{ fontSize: size * 0.82 }}
+      >
+        Copilearn
+      </span>
+    </span>
   );
 }
 
@@ -30,8 +37,8 @@ export function SiteNav({
 }) {
   const links: Array<{ href: string; label: string; key: typeof active }> = [
     { href: "/", label: "Overview", key: "home" },
-    { href: "/fixed", label: "Fixed schema", key: "fixed" },
-    { href: "/dynamic", label: "Dynamic schema", key: "dynamic" },
+    { href: "/fixed", label: "Workspace", key: "fixed" },
+    { href: "/dynamic", label: "Study tools", key: "dynamic" },
     { href: "/catalog", label: "Catalog", key: "catalog" },
   ];
   return (

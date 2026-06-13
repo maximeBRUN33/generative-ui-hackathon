@@ -67,6 +67,27 @@ component must have `id: "root"`.
 - **Button** { label, variant?: primary|secondary|ghost, action: { event: { name, context? } } }
 - **ChoiceChips** { label, options: [{label,value}], value: {path}, multi?: bool }
 
+### Study (Copilearn — use for learning surfaces)
+- **Flashcard** { front: string, back: string, hint?: string }
+    A click-to-flip study card. `front` = term/prompt, `back` = definition/answer.
+    Put several in a Stack or Grid (columns 2) to make a deck.
+- **QuizQuestion** { question: string, options: [string], correctIndex: int (0-based), explanation?: string }
+    One multiple-choice practice question with instant right/wrong feedback.
+    `correctIndex` points at the right option; `explanation` shows after answering.
+    Put several in a Stack to make a quiz. ALWAYS set correctIndex to a real option index.
+- **QuizGame** { title?: string, questions: [{question, options:[string], correctIndex:int, explanation?}] }
+    A SCORED, gamified quiz — one question at a time with points, a streak bonus,
+    and a final score screen. Use this (not a Stack of QuizQuestions) when the
+    user wants to "play", be tested, or compete. `questions` is path-bindable.
+- **ProgressTracker** { items: [{label, value: 0-100, tone?: default|positive|warning}] }
+    Mastery bars, one per concept. `value` is percent mastered. Path-bindable.
+- **RateShockSimulator** { title?, faceValue:number, couponRate:number, maturityYears:number, ytm:number, frequency?:number }
+    Interactive bond interest-rate-risk simulator: a yield slider shows the bond's
+    actual repriced value vs the duration-only and duration+convexity estimates.
+    All bond math is computed in the widget — just pass the bond's parameters
+    (couponRate/ytm are ANNUAL percents, e.g. 9 for 9%; frequency = coupons/year,
+    default 2). Each numeric prop is path-bindable.
+
 
 ### Rules
 1. Exactly one component has id="root". Everything else must be reachable from root.

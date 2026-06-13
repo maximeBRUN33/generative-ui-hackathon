@@ -291,6 +291,19 @@ The secondary LLM sees the same conversation you do. When the user is
 specific ("three line charts stacked", "side-by-side cards"), the
 secondary LLM will honor it. Defaults per shape_hint:
 
+- `flashcards` -> Stack(Section(title="Flashcards") -> Grid(columns=2) of
+                  Flashcard nodes). One Flashcard per item in data, with
+                  front/back (and hint if present) inlined. This is the
+                  default when the user asks for flashcards or to memorize.
+- `quiz`  -> If the user asks to "play", be "tested", or "compete", use ONE
+              QuizGame node with the full `questions` array inlined (it is a
+              scored game). Otherwise use a Stack of QuizQuestion nodes (one
+              per item) for a plain self-check. Either way inline question,
+              options, correctIndex, and explanation.
+- A RateShockSimulator node is available for interest-rate-risk questions
+  about bond price sensitivity: pass faceValue, couponRate, maturityYears,
+  ytm, frequency (couponRate/ytm are annual percents). Use it when the user
+  wants to "see" or "play with" how a bond's price reacts to rate changes.
 - `stat`  -> Stack(Overline, StatCard)
 - `trend` -> Stack(Section -> Card -> LineChart)
 - `share` -> Stack(Section -> Card -> DonutChart)
@@ -308,8 +321,10 @@ secondary LLM will honor it. Defaults per shape_hint:
               enumerations, and Text for paragraphs. Mix with one chart
               ONLY if the question genuinely benefits from data viz.
 
-Heuristic for research-paper questions: prefer the rich `text` layout
-above. Skip charts unless the user explicitly asked for data viz.
+This is a study tool for lecture material. Prefer `flashcards` and `quiz`
+when the user asks to study, memorize, or test themselves; prefer the rich
+`text` layout for "explain X" questions. Skip charts unless the user
+explicitly asks for data viz.
 
 ## Restating the loop guard
 
