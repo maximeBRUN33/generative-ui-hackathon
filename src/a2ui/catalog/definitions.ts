@@ -33,6 +33,7 @@ const childrenRef = z.union([
 
 /* Helpers for "may be a literal or a path binding". */
 const stringOrPath = z.union([z.string(), z.object({ path: z.string() })]);
+const numberOrPath = z.union([z.number(), z.object({ path: z.string() })]);
 
 export const definitions = {
   Stack: {
@@ -272,6 +273,194 @@ export const definitions = {
       ]),
       value: z.object({ path: z.string() }),
       multi: z.boolean().optional(),
+    }),
+  },
+
+  // ── Study components (Copilearn) ────────────────────────────────────────
+  // Added for the generative learning workspace. Flashcard + QuizQuestion are
+  // interactive via LOCAL React state (flip / answer feedback) — no agent
+  // round-trip, so the demo stays instant. ProgressTracker is a data-bound
+  // display, path-bindable like the charts.
+  Flashcard: {
+    description:
+      "A flip card for study. Shows `front` (the term/prompt); click to flip " +
+      "and reveal `back` (the definition/answer). Optional `hint` shows under " +
+      "the front. Use a Stack/Grid of Flashcards for a deck.",
+    props: z.object({
+      front: stringOrPath,
+      back: stringOrPath,
+      hint: stringOrPath.optional(),
+      emoji: stringOrPath.optional(),
+    }),
+  },
+
+  QuizQuestion: {
+    description:
+      "A single multiple-choice practice question with instant feedback. " +
+      "`options` is the answer list; `correctIndex` is the 0-based index of " +
+      "the correct option; `explanation` is revealed after answering. Use a " +
+      "Stack of QuizQuestions for a quiz.",
+    props: z.object({
+      question: stringOrPath,
+      options: z.array(z.string()),
+      correctIndex: z.number().int().min(0),
+      explanation: stringOrPath.optional(),
+    }),
+  },
+
+  ProgressTracker: {
+    description:
+      "Mastery bars, one per concept. `items` is a list of {label, value} " +
+      "where value is 0-100 percent mastered. Optional per-item tone. " +
+      "Path-bindable: bind `items` to a data-model array.",
+    props: z.object({
+      items: z.union([
+        z.array(
+          z.object({
+            label: z.string(),
+            value: z.number(),
+            tone: z.enum(["default", "positive", "warning"]).optional(),
+          }),
+        ),
+        z.object({ path: z.string() }),
+      ]),
+    }),
+  },
+
+  RateShockSimulator: {
+    description:
+      "Interactive bond interest-rate-risk simulator. The student drags a " +
+      "yield-change slider and sees the bond's actual repriced value vs the " +
+      "duration-only (linear) estimate and the duration+convexity estimate — " +
+      "teaching why duration under-predicts for large rate moves. All bond " +
+      "math is computed in the renderer from the params below.",
+    props: z.object({
+      title: stringOrPath.optional(),
+      faceValue: numberOrPath, // e.g. 1000
+      couponRate: numberOrPath, // annual coupon %, e.g. 9
+      maturityYears: numberOrPath, // e.g. 5
+      ytm: numberOrPath, // annual yield-to-maturity %, e.g. 9
+      frequency: numberOrPath.optional(), // coupons per year, default 2
+    }),
+  },
+
+  QuizGame: {
+    description:
+      "A scored, gamified quiz. Presents questions one at a time with points, " +
+      "a streak multiplier, and a final score screen. Use this (not a Stack of " +
+      "QuizQuestions) when the user wants to 'play', 'be tested', or compete. " +
+      "`questions` is path-bindable.",
+    props: z.object({
+      title: stringOrPath.optional(),
+      questions: z.union([
+        z.array(
+          z.object({
+            question: z.string(),
+            options: z.array(z.string()),
+            correctIndex: z.number().int().min(0),
+            explanation: z.string().optional(),
+          }),
+        ),
+        z.object({ path: z.string() }),
+      ]),
+    }),
+  },
+
+  // ── Open generative UI escape hatch ─────────────────────────────────────
+  // The one component that is NOT a fixed shape: the agent authors raw
+  // HTML/SVG/CSS and it renders in a sandboxed iframe. This is how Copilearn
+  // does "open" generative UI without giving up the safety of the catalog for
+  // everything else.
+  FreeformUI: {
+    description:
+      "Open, agent-authored UI. The agent writes raw, self-contained " +
+      "HTML/CSS/SVG (plus optional inline <script>) and it renders in a " +
+      "SANDBOXED iframe with the app's theme tokens available as CSS " +
+      "variables. Use ONLY when no other catalog component fits — a bespoke " +
+      "diagram, a custom animation, a one-off interactive. No external URLs " +
+      "or network calls (blocked). To send an action back to the agent the " +
+      "HTML calls window.a2uiAction(name, context).",
+    props: z.object({
+      html: z.string(),
+      height: z.number().optional(),
+      title: stringOrPath.optional(),
+    }),
+  },
+
+  // ── Math widgets (content-adaptive, v2) ─────────────────────────────────
+  GraphExplorer: {
+    description:
+      "Interactive function plotter for math lectures. Supply a math " +
+      "`expression` in x (with optional named params); the student drags " +
+      "parameter sliders and the curve updates live. Use for 'functions' / " +
+      "'optimization' sections. Expressions support + - * / ^, parentheses, " +
+      "unary minus, functions sin/cos/tan/exp/ln/log/sqrt/abs, constants " +
+      "pi/e, the variable x, and any named params (e.g. 'a*x^2 + b*x + c').",
+    props: z.object({
+      title: stringOrPath.optional(),
+      expression: stringOrPath,
+      params: z.union([
+        z.array(
+          z.object({
+            name: z.string(),
+            min: z.number(),
+            max: z.number(),
+            value: z.number(),
+            step: z.number().optional(),
+          }),
+        ),
+        z.object({ path: z.string() }),
+      ]).optional(),
+      xRange: z.union([z.array(z.number()), z.object({ path: z.string() })]).optional(),
+      yRange: z.union([z.array(z.number()), z.object({ path: z.string() })]).optional(),
+      xLabel: stringOrPath.optional(),
+      yLabel: stringOrPath.optional(),
+    }),
+  },
+
+  SimulationLab: {
+    description:
+      "An interactive 16-bit physics 'lab': the student tunes sliders " +
+      "(angle, power, gravity), hits FIRE, and tries to land a projectile on " +
+      "a target — with a live predicted-arc trace and a hit/miss verdict. Use " +
+      "for motion / physics / projectile / 'tune-to-hit-the-goal' topics — the " +
+      "playable, hands-on simulation for a course.",
+    props: z.object({
+      title: stringOrPath.optional(),
+      subject: stringOrPath.optional(),
+      gravity: numberOrPath.optional(),
+    }),
+  },
+
+  ConceptMap: {
+    description:
+      "A node-and-edge map of how a lecture's concepts relate — the study " +
+      "overview. Give each node a `level` (0 = earliest) for a clean " +
+      "left-to-right layout. Clicking a node fires a 'focus_topic' action so " +
+      "the agent can zoom into that concept. `nodes`/`edges` are path-bindable.",
+    props: z.object({
+      title: stringOrPath.optional(),
+      nodes: z.union([
+        z.array(
+          z.object({
+            id: z.string(),
+            label: z.string(),
+            level: z.number().optional(),
+            group: z.string().optional(),
+          }),
+        ),
+        z.object({ path: z.string() }),
+      ]),
+      edges: z.union([
+        z.array(
+          z.object({
+            from: z.string(),
+            to: z.string(),
+            label: z.string().optional(),
+          }),
+        ),
+        z.object({ path: z.string() }),
+      ]),
     }),
   },
 };

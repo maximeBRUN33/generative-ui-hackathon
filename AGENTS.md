@@ -36,6 +36,11 @@ Read `HACKATHON.md` for the customization recipes.
 > (`agent/src/query.py`, `risk_register`, `domains/`) only exist under
 > `other-examples/portkit/`.
 
+> **Read `docs/MASTERPLAN.md` first.** It is the product/scope source of truth
+> for the current build (the generative-learning-environment direction on the
+> `copilearn` branch) and defines what is in and out of scope. `DESIGN.md` is
+> the visual source of truth. See Hard rules 7 and 8.
+
 ## Hard rules
 
 1. **Versions are pinned.** Do NOT bump `@copilotkit/*`, `langchain*`, or
@@ -60,6 +65,20 @@ Read `HACKATHON.md` for the customization recipes.
    standalone inspector component.
 6. **Don't write new React renderers for A2UI primitives.** Use the catalog
    + theme system. The renderer is provided by `@copilotkit/a2ui-renderer`.
+7. **The front end MUST follow `DESIGN.md`.** `DESIGN.md` (the "Pixel Campus"
+   design system) is the single source of truth for how the UI looks and
+   feels — colors, typography, spacing, shadows, motion, and component style.
+   ALL front-end work obeys it: theming, branding, catalog renderers, and any
+   agent-generated / `FreeformUI` surface. When a value in code disagrees with
+   `DESIGN.md`, `DESIGN.md` wins — change the code, not the doc. Read it before
+   touching anything visual.
+8. **`docs/MASTERPLAN.md` is the product/scope source of truth.** It defines
+   what we are building (generalize the existing `/dynamic` engine + one real
+   3D `Scene3D` component), the lane split (agent vs UI), and — critically —
+   what is **explicitly out of scope** (no second/frontend orchestrator agent,
+   no adopting the full proposed UI stack; React Three Fiber is the only new
+   dep). Before starting feature work, read it and stay inside its scope. If a
+   request conflicts with the masterplan, surface the conflict before building.
 
 ## Customization seams
 
@@ -67,9 +86,12 @@ These are the six grep-anchored seams a hacker (or you) edit to make this
 starter their own. Search for `CUSTOMIZATION SEAM` to find each one in code.
 
 1. **Re-theme** → `src/a2ui/theme.css` (A2UI surface tokens) +
-   `src/app/(pdf)/pdf-analyst.css` (shell brand) + `src/hooks/use-theme.tsx`
+   `src/app/(pdf)/pdf-analyst.css` (shell brand) + `src/hooks/use-theme.tsx`.
+   Use the exact color, typography, and spacing tokens from `DESIGN.md` — it
+   is the source of truth for these values (see Hard rule 7).
 2. **Re-brand the shell** → `src/components/pdf-analyst/Brand.tsx`
-   (`SiteNav`, `PageHeader`, logo/nav, page hero)
+   (`SiteNav`, `PageHeader`, logo/nav, page hero). Match the look defined in
+   `DESIGN.md`.
 3. **Swap demo data** → the uploaded **PDF is the data**. Tune extraction
    in `agent/src/pdf_tools.py` (the structured-JSON extractor the agents
    call), or feed a different document. There is no static dataset file in
@@ -142,10 +164,11 @@ When the hacker says:
   prompt summary in `agent/src/catalog.py`'s `CATALOG_PROMPT`. Run
   `pnpm validate-widget` then `pnpm smoke` before declaring done.
 - **"theme it for X"** → only edit `src/a2ui/theme.css`,
-  `src/app/(pdf)/pdf-analyst.css`, and `src/hooks/use-theme.tsx`. Don't
-  restructure components. Don't bump deps.
-- **"re-brand it"** → edit `src/components/pdf-analyst/Brand.tsx`. Don't
-  touch the chat affordances.
+  `src/app/(pdf)/pdf-analyst.css`, and `src/hooks/use-theme.tsx`. Pull the
+  tokens from `DESIGN.md` (Hard rule 7). Don't restructure components. Don't
+  bump deps.
+- **"re-brand it"** → edit `src/components/pdf-analyst/Brand.tsx`, following
+  `DESIGN.md`. Don't touch the chat affordances.
 - **"make it about Y"** (e.g. a different document type) → tune the
   extraction prompt in `agent/src/pdf_tools.py` and the agent system prompts
   in `agent/src/fixed_agent.py` / `agent/src/dynamic_agent.py`. The data is

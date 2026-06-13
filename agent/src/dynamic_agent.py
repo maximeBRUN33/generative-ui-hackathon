@@ -54,6 +54,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.memory import MemorySaver
 
 from src.catalog import CATALOG_ID, CATALOG_PROMPT
+from src.linkup_tools import web_research
 from src.pdf_tools import query_pdf
 
 
@@ -119,6 +120,11 @@ def _render_model() -> ChatGoogleGenerativeAI:
             model=os.getenv("MODEL", "gemini-3.5-flash"),
             google_api_key=os.getenv("GEMINI_API_KEY"),
             temperature=0,
+            # A full study workspace (flashcards + quiz + a FreeformUI sim) is a
+            # large tool_call. The default output cap can truncate it, leaving
+            # the forced render_a2ui call incomplete -> no tool_calls -> no
+            # surface -> the UI hangs on "Building your level". Give it room.
+            max_output_tokens=16384,
         )
     return _RENDER_MODEL
 
@@ -145,6 +151,81 @@ class _LazyRenderModel:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(_render_model(), name)
+
+
+# ── Pixel Campus simulation directive ─────────────────────────────────────
+# Every generated learning surface must include ONE interactive simulation,
+# specific to the uploaded lecture, authored as a self-contained FreeformUI
+# node in the Pixel Campus 16-bit style (docs/pixel-campus-ui-kit.html). This
+# is a PLAIN string (not an f-string) so the template's { } and quotes are
+# literal. It is appended to the generate_a2ui composer prompt below.
+PIXEL_SIM_DIRECTIVE = """
+
+## MANDATORY — a lecture-specific interactive simulation (EVERY surface)
+
+Every surface you build MUST contain exactly ONE `FreeformUI` node that is an
+interactive *simulation* of a concept FROM THIS LECTURE — a playable model with
+sliders the learner drags to see cause and effect. It must be specific to the
+lecture's real subject, never a generic placeholder. Pick the model that fits:
+- physics -> projectile / pendulum / inclined plane / wave / orbit
+- chemistry -> titration curve / reaction equilibrium / gas laws
+- biology -> population growth / predator-prey / enzyme kinetics
+- economics or finance -> supply & demand / bond price vs yield / compounding
+- math -> plot y=f(x) with the lecture's parameters as sliders
+- CS -> sorting steps / Big-O growth curves / a small state machine
+If nothing fits, model the lecture's core cause-effect relationship anyway
+(e.g. a timeline scrubber or a single-variable what-if).
+
+Author it as a SELF-CONTAINED FreeformUI node. Rules:
+- Node shape: {"id":"sim","component":"FreeformUI","title":"<short lab name>",
+  "height":460,"html":"<one self-contained HTML document>"}.
+- The html is ONE document: inline <style> + markup + inline <script>. NO
+  external URLs, fonts, images, or network calls (the sandbox blocks them).
+- Pixel Campus look: define this palette as CSS vars at the top and use it —
+  --primary:#F4E4C1; --ink:#1B2A4A; --outline:#0E1626; --tertiary:#F0596A;
+  --accent:#FFC94D; --success:#5FBF6A; --sky:#1C5FB0; --ground:#7E8A99 .
+  font-family: ui-monospace, monospace; html{image-rendering:pixelated};
+  square corners; 3-4px solid var(--outline) borders; hard offset shadows
+  (box-shadow:5px 5px 0 var(--outline)); accent-color:var(--accent) on ranges.
+- Structure: a <canvas> stage (dark bg) that DRAWS the model, 2-3
+  <input type=range> sliders bound to the lecture's real variables (label each
+  with its name + a live value), a "▶ RUN" button, and a one-line readout that
+  updates. Redraw on slider 'input' and on RUN. Guard against NaN so a value
+  never blanks the canvas.
+- Keep the JS small and dependency-free (a draw() that reads slider values and
+  paints rects/arcs). Place the simulation prominently, after a short heading.
+
+KEEP THE SIM COMPACT — the whole html must be UNDER ~45 lines / ~2KB. A long
+sim blows the response budget and the surface fails to render. One canvas, 2
+sliders, one RUN button, one readout. Minimal CSS. No comments in the html.
+
+Skeleton to ADAPT (swap the variables, labels, and the draw()/RUN math to THIS
+lecture — keep it this small):
+
+<!doctype html><meta charset=utf-8><style>
+body{font-family:ui-monospace,monospace;background:#F4E4C1;color:#1B2A4A;margin:0;padding:8px}
+canvas{display:block;width:100%;height:200px;background:#0E1626;image-rendering:pixelated;border:4px solid #0E1626}
+.r{display:grid;grid-template-columns:90px 1fr 48px;gap:8px;align-items:center;padding:6px 0}
+b{font-size:12px;text-transform:uppercase}.v{text-align:right;color:#F0596A;font-weight:700}
+input{width:100%;accent-color:#FFC94D}
+button{font-family:inherit;border:4px solid #0E1626;box-shadow:4px 4px 0 #0E1626;background:#F0596A;color:#fff;padding:8px 12px;margin-top:6px;cursor:pointer}
+</style>
+<canvas id=c width=600 height=200></canvas>
+<div class=r><b>Speed</b><input id=s1 type=range min=10 max=90 value=45><span class=v id=v1>45</span></div>
+<div class=r><b>Gravity</b><input id=s2 type=range min=2 max=20 value=10><span class=v id=v2>10</span></div>
+<button id=run>▶ RUN</button><div id=out>Drag a slider, then RUN.</div>
+<script>
+var x=c.getContext('2d');function d(){x.fillStyle='#0E1626';x.fillRect(0,0,600,200);
+var a=(+s1.value||0)*Math.PI/180,g=(+s2.value||1),vx=Math.cos(a)*8,vy=Math.sin(a)*8,t;
+x.fillStyle='#FFC94D';for(t=0;t<60;t+=0.5){var X=10+vx*t,Y=190-(vy*t-0.5*g*0.1*t*t);if(Y>190)break;x.fillRect(X,Y,4,4)}
+v1.textContent=s1.value;v2.textContent=s2.value}
+s1.oninput=d;s2.oninput=d;run.onclick=function(){d();out.textContent='Range set'};d();
+</script>
+
+Keep the other study tools too (flashcards, quiz) — the sim is ADDITIONAL.
+Output STRICT JSON: the html is the value of the FreeformUI node's "html" key,
+inner double-quotes escaped so components_json stays valid JSON.
+"""
 
 
 @tool()
@@ -191,7 +272,7 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
         "(a JSON object string) if you bind a property via {path}; otherwise "
         "pass \"{}\". Emit STRICT JSON in both string params (double-quoted "
         "keys, no trailing commas, no comments)."
-    )
+    ) + PIXEL_SIM_DIRECTIVE
 
     model_with_tool = _render_model().bind_tools(
         [render_a2ui], tool_choice="render_a2ui"
@@ -201,7 +282,29 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     )
 
     if not response.tool_calls:
-        return json.dumps({"error": "secondary LLM did not call render_a2ui"})
+        # The composer didn't return a usable tool call (e.g. the response was
+        # truncated before the forced render_a2ui call completed). Emit a real
+        # surface anyway so the client always gets a surfaceId and never hangs
+        # on "Building your level…" — a calm retry card beats an infinite
+        # spinner.
+        fallback = [
+            a2ui.create_surface("dynamic-surface", catalog_id=CATALOG_ID),
+            a2ui.update_components(
+                "dynamic-surface",
+                [
+                    {"id": "root", "component": "Stack", "gap": "md",
+                     "children": ["fb-h", "fb-c"]},
+                    {"id": "fb-h", "component": "Heading", "level": "2",
+                     "text": "Couldn't build the level"},
+                    {"id": "fb-c", "component": "Callout", "tone": "warning",
+                     "title": "Try again",
+                     "body": "The generator ran out of room composing this "
+                             "surface. Tap ↑ NEW LECTURE (or re-send) to retry "
+                             "— a shorter prompt or fewer slides usually works."},
+                ],
+            ),
+        ]
+        return a2ui.render(operations=fallback)
 
     args = response.tool_calls[0]["args"]
     surface_id = args.get("surfaceId", "dynamic-surface")
@@ -258,27 +361,52 @@ attaches a different PDF.
 Only if NO message in the history has ever contained a
 `[Document: ...]` header should you ask the user to attach a PDF.
 
+## Your tools
+
+- `query_pdf(pdf_text, question)` — turns the lecture into structured study
+  material (flashcards, quiz, explainer, chart). Grounds the answer in the
+  uploaded course.
+- `web_research(query)` — searches the LIVE web. Use it ONLY when the learner
+  wants to go BEYOND the course: the latest developments, real-world examples,
+  current numbers / rates / prices, recent news, "what's happening now with
+  X". Returns JSON {{query, answer, sources:[{{title,url,snippet,favicon}}]}}.
+- `generate_a2ui()` — renders the answer as an A2UI surface. It is ALWAYS the
+  LAST tool call of the turn. No arguments; it reads everything from state,
+  including any query_pdf and web_research results.
+
 ## How a turn MUST go (do not deviate)
 
-1. If NO message in the conversation history has a `[Document: ...]`
-   header, reply with a single sentence: "Attach a PDF and I'll render
-   the answer." STOP. Do not call any tool.
-2. Otherwise (a PDF is available from this turn or a previous one):
-   a. ONE call to `query_pdf(pdf_text=<the document text from the most
-      recent [Document: ...] message>, question=<the user's question on
-      THIS turn>)`. The tool returns JSON with shape_hint, title,
-      summary, data. Read it silently. DO NOT type the JSON anywhere.
-   b. ONE call to `generate_a2ui()`. No arguments.
-   c. STOP. Do not call any more tools. Do not write any chat content.
-      Your final assistant message MUST be an empty string. The rendered
-      surface IS the user-visible answer.
+First decide which flow the learner's message wants, then ALWAYS finish with
+exactly one `generate_a2ui()` call.
+
+1. STUDY FLOW — the default. "Explain X", "make flashcards", "quiz me",
+   "summarize chapter 3": the answer lives in the lecture.
+   a. If NO message in the conversation history has a `[Document: ...]`
+      header, reply with a single sentence: "Attach a PDF and I'll render
+      the answer." STOP. Do not call any tool.
+   b. Otherwise: ONE call to `query_pdf(pdf_text=<the document text from the
+      most recent [Document: ...] message>, question=<the user's question on
+      THIS turn>)`. Read the JSON silently. DO NOT type it anywhere.
+   c. ONE call to `generate_a2ui()`. STOP.
+
+2. GO-DEEPER / WEB FLOW — the learner asks for the latest / real-world /
+   current / live / "in practice today" / recent-news angle.
+   a. ONE or TWO calls to `web_research(query=...)`, each a specific,
+      self-contained query. If a lecture is attached AND grounding the
+      real-world answer in it helps, you MAY also call `query_pdf` once first.
+   b. ONE call to `generate_a2ui()`. STOP.
+
+3. After `generate_a2ui()` returns you are DONE. Do not call any more tools.
+   Do not write any chat content. Your final assistant message MUST be an
+   empty string. The rendered surface IS the user-visible answer.
 
 ## Absolute hard rules. Breaking ANY of these causes a crash.
 
 - After `generate_a2ui` returns, you are DONE for this turn. Do not call
-  `query_pdf` again. Do not call `generate_a2ui` again. Do not write
+  `query_pdf`, `web_research`, or `generate_a2ui` again. Do not write
   anything except an empty string.
-- NEVER include the query_pdf JSON in your reply.
+- NEVER include the query_pdf JSON, the web_research JSON, or the raw answer
+  in your reply.
 - NEVER include any tool's return value in your reply.
 - NEVER quote the PDF text, summarize the document, or echo any part of
   `pdf_text` back into the chat.
@@ -291,6 +419,27 @@ The secondary LLM sees the same conversation you do. When the user is
 specific ("three line charts stacked", "side-by-side cards"), the
 secondary LLM will honor it. Defaults per shape_hint:
 
+- `flashcards` -> Stack(Section(title="Flashcards") -> Grid(columns=2) of
+                  Flashcard nodes). One Flashcard per item in data, with
+                  front/back (and hint if present) inlined. This is the
+                  default when the user asks for flashcards or to memorize.
+- `quiz`  -> If the user asks to "play", be "tested", or "compete", use ONE
+              QuizGame node with the full `questions` array inlined (it is a
+              scored game). Otherwise use a Stack of QuizQuestion nodes (one
+              per item) for a plain self-check. Either way inline question,
+              options, correctIndex, and explanation.
+- A RateShockSimulator node is available for interest-rate-risk questions
+  about bond price sensitivity: pass faceValue, couponRate, maturityYears,
+  ytm, frequency (couponRate/ytm are annual percents). Use it when the user
+  wants to "see" or "play with" how a bond's price reacts to rate changes.
+- A SimulationLab node is the CENTERPIECE interactive: a playable 16-bit lab
+  where the student tunes sliders and FIREs to hit a target (with a predicted
+  arc + hit/miss verdict). Whenever the topic has ANYTHING dynamic, physical,
+  or quantitative to play with (motion, forces, rates, growth, optimization,
+  "what happens if I change X"), INCLUDE a SimulationLab near the top — set its
+  `title` and `subject` to the course (e.g. title "🚀 Launch Lab", subject
+  "PHYSICS · LVL 2"). Prefer it over a static chart when the learner could
+  experiment.
 - `stat`  -> Stack(Overline, StatCard)
 - `trend` -> Stack(Section -> Card -> LineChart)
 - `share` -> Stack(Section -> Card -> DonutChart)
@@ -308,12 +457,39 @@ secondary LLM will honor it. Defaults per shape_hint:
               enumerations, and Text for paragraphs. Mix with one chart
               ONLY if the question genuinely benefits from data viz.
 
-Heuristic for research-paper questions: prefer the rich `text` layout
-above. Skip charts unless the user explicitly asked for data viz.
+### Rendering web_research results (the go-deeper surface)
+
+When the conversation contains a `web_research` result (JSON with `answer`
+and `sources`), you have FULL creative freedom — this is the moment to show
+off generative UI. There is no fixed template:
+
+- Lead with the synthesized `answer`: a Heading + Text explainer, or a
+  Callout for the headline takeaway followed by Text paragraphs.
+- Make every claim attributable. Render `sources` as clickable citations —
+  a BulletList of titles, or a Stack/Grid of Cards (title + snippet + url).
+- For a richer "research briefing" look, author a **FreeformUI** surface:
+  a bespoke layout of source cards, a comparison panel, an annotated diagram,
+  a timeline. Reach for FreeformUI whenever the structured catalog feels too
+  plain for the answer you want to show. Keep it fully self-contained per the
+  FreeformUI catalog rules: NO external URLs, fonts, or images — so do NOT
+  embed a source `favicon` URL inside FreeformUI (the sandbox blocks it; show
+  the title + url text instead). The `favicon` field is provided for a future
+  React Citation component, which can load it.
+- If the result has an `error` field, render a small, calm Callout
+  (tone=warning): "Couldn't reach the web for that — here's what the lecture
+  says" and fall back to the lecture content if available.
+
+This is a study tool for lecture material. Prefer `flashcards` and `quiz`
+when the user asks to study, memorize, or test themselves; prefer the rich
+`text` layout for "explain X" questions. Skip charts unless the user
+explicitly asks for data viz.
 
 ## Restating the loop guard
 
-- Max two tool calls per turn. query_pdf (once) + generate_a2ui (once).
+- `generate_a2ui` is ALWAYS the final tool call, exactly once.
+- Before it: EITHER `query_pdf` once (study flow) OR `web_research` one-to-two
+  times (go-deeper flow) — or `web_research` then `query_pdf` when the learner
+  wants the lecture grounded AND the live real-world layer.
 - After generate_a2ui returns, STOP IMMEDIATELY.
 - Never describe the surface in prose. The surface IS the answer.
 
@@ -328,7 +504,7 @@ def build_dynamic_agent():
     # then). Online behavior is unchanged.
     return create_agent(
         model=_LazyRenderModel(),
-        tools=[query_pdf, generate_a2ui],
+        tools=[query_pdf, web_research, generate_a2ui],
         middleware=[CopilotKitMiddleware()],
         system_prompt=SYSTEM_PROMPT,
         checkpointer=MemorySaver(),

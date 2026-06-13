@@ -67,6 +67,70 @@ component must have `id: "root"`.
 - **Button** { label, variant?: primary|secondary|ghost, action: { event: { name, context? } } }
 - **ChoiceChips** { label, options: [{label,value}], value: {path}, multi?: bool }
 
+### Study (Copilearn — use for learning surfaces)
+- **Flashcard** { front: string, back: string, hint?: string, emoji?: string }
+    A click-to-flip study card — front shows an emoji + a short term; tap to flip
+    to the `back`. Keep `back` ELI5: one plain sentence a 12-year-old gets, no
+    jargon. `emoji` is one emoji that hints the idea. Put several in a Grid
+    (columns 2-3) to make a simple, tappable deck — prefer this over dense text
+    cards for explaining concepts.
+- **QuizQuestion** { question: string, options: [string], correctIndex: int (0-based), explanation?: string }
+    One multiple-choice practice question with instant right/wrong feedback.
+    `correctIndex` points at the right option; `explanation` shows after answering.
+    Put several in a Stack to make a quiz. ALWAYS set correctIndex to a real option index.
+- **QuizGame** { title?: string, questions: [{question, options:[string], correctIndex:int, explanation?}] }
+    A SCORED, gamified quiz — one question at a time with points, a streak bonus,
+    and a final score screen. Use this (not a Stack of QuizQuestions) when the
+    user wants to "play", be tested, or compete. `questions` is path-bindable.
+- **ProgressTracker** { items: [{label, value: 0-100, tone?: default|positive|warning}] }
+    Mastery bars, one per concept. `value` is percent mastered. Path-bindable.
+- **RateShockSimulator** { title?, faceValue:number, couponRate:number, maturityYears:number, ytm:number, frequency?:number }
+    Interactive bond interest-rate-risk simulator: a yield slider shows the bond's
+    actual repriced value vs the duration-only and duration+convexity estimates.
+    All bond math is computed in the widget — just pass the bond's parameters
+    (couponRate/ytm are ANNUAL percents, e.g. 9 for 9%; frequency = coupons/year,
+    default 2). Each numeric prop is path-bindable.
+
+### Math (content-adaptive widgets for math/stats lectures)
+- **GraphExplorer** { title?, expression: string, params?: [{name,min,max,value,step?}], xRange?: [min,max], yRange?, xLabel?, yLabel? }
+    Interactive function plotter. `expression` is a math formula in `x` plus any
+    named params (e.g. "a*x^2 + b*x + c"). Supports + - * / ^, parentheses, unary
+    minus, sin/cos/tan/exp/ln/log/sqrt/abs, constants pi/e. Each entry in `params`
+    becomes a live slider that re-plots the curve. Use for "functions" sections,
+    and for "optimization" (plot the objective and see its max/min). Numeric/array
+    props are path-bindable.
+- **SimulationLab** { title?, subject?, gravity?:number }
+    An interactive 16-bit "lab": the student tunes sliders (angle, power,
+    gravity), presses FIRE, and tries to land a projectile on a target, with a
+    live predicted-arc trace and a hit/miss verdict. Use it as the playable,
+    hands-on SIMULATION for a course — for motion/physics/projectile/optimization
+    or any "tune the parameters to hit the goal" topic. Set `title` (e.g.
+    "🚀 Launch Lab") and `subject` (e.g. "PHYSICS · LVL 2"). This is the
+    centerpiece interactive — prefer it when the lecture has anything dynamic
+    to play with.
+- **ConceptMap** { title?, nodes: [{id,label,level?,group?}], edges: [{from,to,label?}] }
+    A node-and-edge overview of how the lecture's concepts relate. Give each node
+    a `level` (0 = earliest) for a left-to-right layout. Tapping a node fires a
+    `focus_topic` action. Use this as the lecture overview. nodes/edges are
+    path-bindable.
+
+### Open generative UI (escape hatch — use ONLY when nothing above fits)
+- **FreeformUI** { html: string, height?: number, title?: string }
+    You author RAW, self-contained HTML/CSS/SVG (and optional inline <script>)
+    and it renders in a SANDBOXED iframe. Reach for this only when the catalog
+    above genuinely can't express what's needed: a bespoke diagram, a custom
+    animation, a one-off interactive visual. Rules:
+      * Fully self-contained. NO external URLs, stylesheets, fonts, images, or
+        network calls — they are blocked by the sandbox/CSP. Use inline SVG for
+        graphics and data: URIs for images.
+      * The app's theme tokens are available as CSS variables: --ink, --ink-2,
+        --line, --surface, --surface-soft, --lilac, --mint, --orange, --accent.
+        Use them so it matches the app.
+      * To send an action back to you, the HTML can call
+        window.a2uiAction(name, context).
+    Prefer the structured components above when they fit — they are more
+    reliable. FreeformUI is the creative escape hatch, not the default.
+
 
 ### Rules
 1. Exactly one component has id="root". Everything else must be reachable from root.

@@ -42,7 +42,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${jakarta.variable} ${splineMono.variable}`}>
       <head>
-        <title>CopilotKit</title>
+        <title>Copilearn — Generative Study</title>
         <link
           rel="icon"
           type="image/svg+xml"

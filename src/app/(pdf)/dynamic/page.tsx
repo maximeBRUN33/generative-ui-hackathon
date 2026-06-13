@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import {
   CopilotChat,
@@ -12,6 +12,8 @@ import { SurfaceCanvas, CanvasEmptyState } from "@/components/pdf-analyst/Surfac
 import { FilteredUserMessage } from "@/components/pdf-analyst/FilteredUserMessage";
 import { FilteredAssistantMessage } from "@/components/pdf-analyst/FilteredAssistantMessage";
 import { Split } from "@/components/pdf-analyst/Split";
+import { PixelLanding } from "@/components/pdf-analyst/PixelLanding";
+import { surfaceBus } from "@/a2ui/surface-bus";
 import { extractPdfText } from "@/lib/pdf";
 
 const AGENT_ID = "dynamic_agent";
@@ -56,6 +58,17 @@ export default function DynamicPage() {
     parameters: z.any(),
     render: () => <></>,
   });
+
+  // Show the Pixel Campus landing until the agent paints a surface from the
+  // uploaded slides. Chat + canvas stay mounted underneath so the pipeline
+  // keeps working; the landing is a full-screen cover.
+  const [hasSurface, setHasSurface] = useState(false);
+  useEffect(() => {
+    setHasSurface(!!surfaceBus.snapshot(AGENT_ID).surfaceId);
+    return surfaceBus.subscribe(AGENT_ID, (snap) => {
+      if (snap.surfaceId) setHasSurface(true);
+    });
+  }, []);
 
   return (
     <div className="h-screen flex flex-col bg-[var(--bg)]">
@@ -116,9 +129,10 @@ export default function DynamicPage() {
                     console.warn("[pdf upload failed]", err),
                 }}
                 labels={{
-                  chatInputPlaceholder: "Attach a PDF (📎), then ask anything…",
+                  chatInputPlaceholder:
+                    "Attach lecture slides (📎), then say “quiz me on…”",
                   welcomeMessageText:
-                    "Attach a PDF using the 📎 button, then ask any question.",
+                    "Attach your lecture PDF (📎), then try “Quiz me on derivatives” or “Make flashcards for utility.”",
                 }}
               />
             </div>
@@ -129,11 +143,11 @@ export default function DynamicPage() {
             channel={AGENT_ID}
             emptyState={
               <CanvasEmptyState
-                title="Canvas is empty"
-                subtitle="Attach a PDF in the chat and ask anything. The agent will compose a UI surface using the catalog and render it here."
+                title="Your study tools appear here"
+                subtitle="Attach a lecture PDF and ask to be quizzed or to drill flashcards. The agent composes the right study surface from the catalog and renders it here."
                 hint={
                   <span className="mono text-[11px] uppercase tracking-[0.14em] text-[var(--ink)]">
-                    try: “Show me the revenue trend.”
+                    try: “Quiz me on derivatives.”
                   </span>
                 }
               />
@@ -142,6 +156,8 @@ export default function DynamicPage() {
         }
       />
       </div>
+
+      {!hasSurface && <PixelLanding agentId={AGENT_ID} />}
     </div>
   );
 }

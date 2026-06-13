@@ -33,14 +33,17 @@ from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langgraph.checkpoint.memory import MemorySaver
 
-from src.offline_sample import OFFLINE_DASHBOARD_ARGS
+from src.offline_sample import OFFLINE_WORKSPACE_ARGS
 
-_TOOL_NAME = "render_dashboard"
-_FINAL_TEXT = "Offline mode — showing a sample Tesla Q3 FY24 dashboard."
+_TOOL_NAME = "render_workspace"
+_FINAL_TEXT = (
+    "Here's your study workspace — explore the concept map, drag the function "
+    "grapher, and play the quiz."
+)
 
 
 class OfflineDashboardModel(BaseChatModel):
-    """Deterministic stub that forces one `render_dashboard` call, then stops.
+    """Deterministic stub that forces one `render_workspace` call, then stops.
 
     Inspecting the message history is enough to decide the turn:
       - no ToolMessage yet  → emit the forced tool call;
@@ -78,7 +81,7 @@ class OfflineDashboardModel(BaseChatModel):
                 tool_calls=[
                     {
                         "name": _TOOL_NAME,
-                        "args": dict(OFFLINE_DASHBOARD_ARGS),
+                        "args": dict(OFFLINE_WORKSPACE_ARGS),
                         "id": f"call_{uuid.uuid4().hex[:12]}",
                     }
                 ],

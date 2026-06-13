@@ -1,126 +1,129 @@
-"""Canned dashboard inputs for OFFLINE=1 mode.
+"""Canned study workspace for OFFLINE=1 mode — Copilearn, math demo.
 
-When OFFLINE=1 is set, the /fixed agent serves a deterministic sample
-dashboard with NO Gemini call and no API key (see fixed_agent.py). These
-args are passed verbatim to `render_dashboard(**OFFLINE_DASHBOARD_ARGS)`,
-so they MUST satisfy that tool's typed inputs:
+When OFFLINE=1 is set, the /fixed agent serves this deterministic workspace with
+NO Gemini call and no API key (see fixed_agent.py). It's the bulletproof stage
+demo: the app opens straight to a generated math study environment (concept map
++ topic cards + function grapher + scored quiz + mastery tracker) with no upload
+and no key.
 
-  - eyebrow / title / subtitle: str
-  - kpis: EXACTLY 4 × {label, value, delta, caption}     (Kpi)
-  - trend: 6-12 × {label, value: float}                  (Point)
-  - share: 3-5 × {label, value: float}                   (Point)
-  - rows: 5-8 × {name, category, value, delta}           (Row)
-  - scope_options: 3-6 × {label, value}                  (ScopeOption)
-  - scope_selected: str (one of scope_options' values)
-
-Dataset: a realistic Tesla Q3 FY24 earnings snapshot. The numbers are
-illustrative-but-plausible (revenue / deliveries / margin / EPS, a
-trailing revenue trend, an automotive-vs-energy share, and a regional /
-segment row table). The system prompt in fixed_agent.py already cites
-"Tesla Q3 '24" as a canonical scope-chip example, so this fixture mirrors
-that shape.
+These args are passed verbatim to `render_workspace(**OFFLINE_WORKSPACE_ARGS)`,
+so the KEYS must match that tool's parameters exactly. Content is drawn from
+QB Math Lecture 3 — "Functions of 2 variables" (Quantitative Business,
+Maastricht; de Graaff): 1- and 2-variable functions, level curves,
+parameterized curves, optimization, and portfolio optimization (utility & risk).
 """
 from __future__ import annotations
 
 from typing import Any
 
-# Keep this a plain dict of JSON-ish primitives so it round-trips cleanly as
-# tool-call args and through a2ui.render(...). Field names match the
-# TypedDicts in fixed_agent.py (Kpi / Point / Row / ScopeOption) exactly.
-OFFLINE_DASHBOARD_ARGS: dict[str, Any] = {
-    "eyebrow": "Q3 FY24 · EARNINGS SNAPSHOT",
-    "title": "Tesla Q3 FY24 Performance",
-    "subtitle": "Revenue, deliveries, and margin for the quarter ended Sep 30, 2024.",
-    "kpis": [
+OFFLINE_WORKSPACE_ARGS: dict[str, Any] = {
+    "eyebrow": "QUANTITATIVE BUSINESS · LECTURE 3",
+    "title": "Functions, Graphs & Optimization",
+    "subtitle": "From convex curves and stationary points to the math behind optimal portfolios.",
+    "concepts": [
         {
-            "label": "Total revenue",
-            "value": "$25.18B",
-            "delta": "+8%",
-            "caption": "vs. $23.35B in Q3 FY23",
+            "name": "Functions",
+            "definition": "A machine: put a number in, get one number out. Drawing it gives you a curve.",
+            "difficulty": "Core",
+            "emoji": "⚙️",
         },
         {
-            "label": "Vehicle deliveries",
-            "value": "462,890",
-            "delta": "+6%",
-            "caption": "vs. 435,059 in Q3 FY23",
+            "name": "Convex vs saddle",
+            "definition": "Convex curves smile upward (a bowl); a saddle bends up one way and down the other, like a Pringle.",
+            "difficulty": "Core",
+            "emoji": "🥣",
         },
         {
-            "label": "Operating margin",
-            "value": "10.8%",
-            "delta": "+3.0pp",
-            "caption": "vs. 7.6% in Q3 FY23",
+            "name": "Level curves",
+            "definition": "Slice a hill at one height and trace the edge — that ring is a level curve, like lines on a map.",
+            "difficulty": "Intermediate",
+            "emoji": "🗺️",
         },
         {
-            "label": "Diluted EPS (GAAP)",
-            "value": "$0.62",
-            "delta": "+17%",
-            "caption": "vs. $0.53 in Q3 FY23",
-        },
-    ],
-    # Trailing-quarter total revenue ($B). 8 points (within the 6-12 range).
-    "trend": [
-        {"label": "Q4 '22", "value": 24.32},
-        {"label": "Q1 '23", "value": 23.33},
-        {"label": "Q2 '23", "value": 24.93},
-        {"label": "Q3 '23", "value": 23.35},
-        {"label": "Q4 '23", "value": 25.17},
-        {"label": "Q1 '24", "value": 21.30},
-        {"label": "Q2 '24", "value": 25.50},
-        {"label": "Q3 '24", "value": 25.18},
-    ],
-    # Revenue share by business line ($B). 4 slices (within the 3-5 range).
-    "share": [
-        {"label": "Automotive", "value": 20.02},
-        {"label": "Energy gen. & storage", "value": 2.38},
-        {"label": "Services & other", "value": 2.79},
-        {"label": "Regulatory credits", "value": 0.74},
-    ],
-    # Segment / regional breakdown. 6 rows (within the 5-8 range).
-    "rows": [
-        {
-            "name": "Automotive",
-            "category": "Segment",
-            "value": "$20.02B",
-            "delta": "+2%",
+            "name": "Parameterized curves",
+            "definition": "Follow a moving dot over time and draw its path — a line, a loop, or a spiral.",
+            "difficulty": "Intermediate",
+            "emoji": "✏️",
         },
         {
-            "name": "Energy generation & storage",
-            "category": "Segment",
-            "value": "$2.38B",
-            "delta": "+52%",
+            "name": "Optimization",
+            "definition": "Find the top of the hill (or bottom of the valley): the spot where the slope is flat.",
+            "difficulty": "Core",
+            "emoji": "⛰️",
         },
         {
-            "name": "Services & other",
-            "category": "Segment",
-            "value": "$2.79B",
-            "delta": "+29%",
-        },
-        {
-            "name": "United States",
-            "category": "Region",
-            "value": "$12.10B",
-            "delta": "+11%",
-        },
-        {
-            "name": "China",
-            "category": "Region",
-            "value": "$4.67B",
-            "delta": "-4%",
-        },
-        {
-            "name": "Other international",
-            "category": "Region",
-            "value": "$8.41B",
-            "delta": "+9%",
+            "name": "Best portfolio",
+            "definition": "Don't bet on one thing. Mixing investments lowers the bumps, so you sleep better for the same reward.",
+            "difficulty": "Advanced",
+            "emoji": "🧺",
         },
     ],
-    # Scope chips tailored to a Tesla quarterly PDF (3-6 chips).
-    "scope_options": [
-        {"label": "Q3 '24", "value": "q3_fy24"},
-        {"label": "By segment", "value": "by_segment"},
-        {"label": "By region", "value": "by_region"},
-        {"label": "Automotive vs Energy", "value": "auto_vs_energy"},
-        {"label": "Trailing 4 quarters", "value": "trailing_4q"},
+    "progress": [
+        {"label": "Functions", "value": 0, "tone": "default"},
+        {"label": "Convex vs saddle", "value": 0, "tone": "default"},
+        {"label": "Level curves", "value": 0, "tone": "default"},
+        {"label": "Parameterized curves", "value": 0, "tone": "default"},
+        {"label": "Optimization", "value": 0, "tone": "default"},
+        {"label": "Best portfolio", "value": 0, "tone": "default"},
     ],
-    "scope_selected": "q3_fy24",
+    "takeaway": "Calculus is the engine of quantitative business: graph a function, set its derivative to zero, and you have the optimum — whether it's a curve's vertex or the best portfolio mix.",
+    "concept_nodes": [
+        {"id": "fn1", "label": "Functions (1 var)", "level": 0},
+        {"id": "fn2", "label": "Functions (2 var)", "level": 1},
+        {"id": "level", "label": "Level curves", "level": 1},
+        {"id": "param", "label": "Parameterized curves", "level": 2},
+        {"id": "opt", "label": "Optimization", "level": 2},
+        {"id": "portfolio", "label": "Portfolio optimization", "level": 3},
+        {"id": "capm", "label": "CAPM / One-Fund", "level": 4},
+    ],
+    "concept_edges": [
+        {"from": "fn1", "to": "fn2"},
+        {"from": "fn1", "to": "level"},
+        {"from": "fn2", "to": "opt"},
+        {"from": "level", "to": "param"},
+        {"from": "opt", "to": "portfolio"},
+        {"from": "param", "to": "portfolio"},
+        {"from": "portfolio", "to": "capm"},
+    ],
+    "graph_title": "Function explorer:  a·x² + b·x + c",
+    "graph_expression": "a*x^2 + b*x + c",
+    "graph_params": [
+        {"name": "a", "min": -2, "max": 2, "value": 1},
+        {"name": "b", "min": -5, "max": 5, "value": 0},
+        {"name": "c", "min": -5, "max": 5, "value": -3},
+    ],
+    "graph_x_min": -6,
+    "graph_x_max": 6,
+    "quiz": [
+        {
+            "question": "f(x) = x² is convex everywhere. Its stationary point at x = 0 is a…",
+            "options": ["maximum", "minimum", "saddle point", "discontinuity"],
+            "correctIndex": 1,
+            "explanation": "A convex function curves upward, so its stationary point is a minimum.",
+        },
+        {
+            "question": "g(x) = x³ at x = 0 is…",
+            "options": ["a minimum", "a maximum", "a saddle / inflection point", "undefined"],
+            "correctIndex": 2,
+            "explanation": "x³ is convex for x>0 and concave for x<0 — neither a max nor a min.",
+        },
+        {
+            "question": "A level curve of f(x, y) is the set of points where…",
+            "options": ["x = 0", "f(x, y) = c, a constant", "the gradient is zero", "y = x"],
+            "correctIndex": 1,
+            "explanation": "Setting f(x,y)=c slices the surface at height c, tracing a curve in the xy-plane.",
+        },
+        {
+            "question": "To find the portfolio mix that maximizes utility U(α), you…",
+            "options": ["set U = 0", "set dU/dα = 0 (first-order condition)", "maximize the variance σ²", "always set α = 1"],
+            "correctIndex": 1,
+            "explanation": "Optimize by setting the derivative to zero: dU/dα = 0.",
+        },
+        {
+            "question": "The optimal mix α = ½ gives utility 1.25 vs 1 for a single asset, so diversification…",
+            "options": ["hurts the investor", "makes no difference", "helps — it raises risk-adjusted utility", "is impossible here"],
+            "correctIndex": 2,
+            "explanation": "Splitting across assets lowers variance, which raises risk-adjusted utility.",
+        },
+    ],
 }

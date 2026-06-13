@@ -7,66 +7,42 @@
 // logo asset in public/brand/, rename the product, rewrite the hero copy.
 // Brand tints come from src/app/(pdf)/pdf-analyst.css (Seam #1).
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-import Image from "next/image";
 import Link from "next/link";
 
+// Copilearn wordmark. A text mark keeps branding in code (no SVG asset to
+// ship) and re-themes automatically via the brand tokens in pdf-analyst.css.
 export function Logo({ size = 22 }: { size?: number }) {
   return (
-    <Image
-      src="/brand/logo-full.svg"
-      alt="CopilotKit"
-      width={size * 5}
-      height={size}
-      priority
-      style={{ height: size, width: "auto" }}
-    />
+    <span className="flex items-center gap-2" style={{ height: size }}>
+      <span
+        className="grid place-items-center rounded-[7px] bg-[var(--ink)] text-white font-bold"
+        style={{ width: size, height: size, fontSize: size * 0.5 }}
+      >
+        C
+      </span>
+      <span
+        className="font-semibold tracking-tight text-[var(--ink)]"
+        style={{ fontSize: size * 0.82 }}
+      >
+        Copilearn
+      </span>
+    </span>
   );
 }
 
 export function SiteNav({
-  active,
+  active: _active,
 }: {
   active?: "home" | "fixed" | "dynamic" | "catalog";
 }) {
-  const links: Array<{ href: string; label: string; key: typeof active }> = [
-    { href: "/", label: "Overview", key: "home" },
-    { href: "/fixed", label: "Fixed schema", key: "fixed" },
-    { href: "/dynamic", label: "Dynamic schema", key: "dynamic" },
-    { href: "/catalog", label: "Catalog", key: "catalog" },
-  ];
+  // Single screen, no tabs — just the wordmark. (Catalog/overview routes still
+  // exist for dev, they're just not surfaced in the nav.)
   return (
     <header className="shrink-0 border-b border-[var(--line)] bg-[var(--surface)]">
-      <div className="max-w-[1480px] mx-auto px-5 h-14 flex items-center justify-between">
+      <div className="max-w-[1480px] mx-auto px-5 h-14 flex items-center">
         <Link href="/" className="flex items-center gap-3">
           <Logo size={22} />
-          <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-[var(--line)] bg-[var(--surface-soft)] text-[10.5px] uppercase tracking-[0.12em] mono text-[var(--muted)]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--lilac)]" />
-            A2UI
-          </span>
         </Link>
-        <nav className="flex items-center gap-1">
-          {links.map((l) => (
-            <Link
-              key={l.key}
-              href={l.href}
-              className={`px-3 py-1.5 rounded-lg text-[13.5px] transition ${
-                active === l.key
-                  ? "bg-[var(--surface-soft)] text-[var(--ink)] border border-[var(--line)]"
-                  : "text-[var(--muted)] hover:text-[var(--ink)]"
-              }`}
-            >
-              {l.label}
-            </Link>
-          ))}
-          <a
-            href="https://docs.copilotkit.ai"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-2 px-3 py-1.5 rounded-lg text-[13.5px] text-[var(--muted)] hover:text-[var(--ink)]"
-          >
-            Docs ↗
-          </a>
-        </nav>
       </div>
     </header>
   );

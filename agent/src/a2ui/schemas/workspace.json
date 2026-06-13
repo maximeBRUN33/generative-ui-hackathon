@@ -1,0 +1,106 @@
+[
+  {
+    "id": "root",
+    "component": "Stack",
+    "gap": "lg",
+    "children": [
+      "header-card",
+      "conceptmap-section",
+      "concept-section",
+      "graph-section",
+      "quiz-section",
+      "progress-section",
+      "takeaway-callout"
+    ]
+  },
+
+  { "id": "header-card", "component": "Card", "child": "header-stack" },
+  {
+    "id": "header-stack",
+    "component": "Stack",
+    "gap": "sm",
+    "children": ["header-eyebrow", "header-heading", "header-text"]
+  },
+  { "id": "header-eyebrow", "component": "Overline", "text": { "path": "/eyebrow" } },
+  { "id": "header-heading", "component": "Heading", "level": "1", "text": { "path": "/title" } },
+  { "id": "header-text", "component": "Text", "tone": "muted", "text": { "path": "/subtitle" } },
+
+  {
+    "id": "conceptmap-section",
+    "component": "Section",
+    "eyebrow": "OVERVIEW",
+    "title": "How it fits together",
+    "child": "conceptmap"
+  },
+  {
+    "id": "conceptmap",
+    "component": "ConceptMap",
+    "nodes": { "path": "/conceptMap/nodes" },
+    "edges": { "path": "/conceptMap/edges" }
+  },
+
+  {
+    "id": "concept-section",
+    "component": "Section",
+    "eyebrow": "TAP A CARD TO FLIP",
+    "title": "The big ideas, simply",
+    "child": "concept-grid"
+  },
+  {
+    "id": "concept-grid",
+    "component": "Grid",
+    "columns": 2,
+    "gap": "md",
+    "children": ["concept-1", "concept-2", "concept-3", "concept-4", "concept-5", "concept-6"]
+  },
+
+  { "id": "concept-1", "component": "Flashcard", "emoji": { "path": "/concepts/0/emoji" }, "front": { "path": "/concepts/0/name" }, "back": { "path": "/concepts/0/definition" } },
+  { "id": "concept-2", "component": "Flashcard", "emoji": { "path": "/concepts/1/emoji" }, "front": { "path": "/concepts/1/name" }, "back": { "path": "/concepts/1/definition" } },
+  { "id": "concept-3", "component": "Flashcard", "emoji": { "path": "/concepts/2/emoji" }, "front": { "path": "/concepts/2/name" }, "back": { "path": "/concepts/2/definition" } },
+  { "id": "concept-4", "component": "Flashcard", "emoji": { "path": "/concepts/3/emoji" }, "front": { "path": "/concepts/3/name" }, "back": { "path": "/concepts/3/definition" } },
+  { "id": "concept-5", "component": "Flashcard", "emoji": { "path": "/concepts/4/emoji" }, "front": { "path": "/concepts/4/name" }, "back": { "path": "/concepts/4/definition" } },
+  { "id": "concept-6", "component": "Flashcard", "emoji": { "path": "/concepts/5/emoji" }, "front": { "path": "/concepts/5/name" }, "back": { "path": "/concepts/5/definition" } },
+
+  {
+    "id": "graph-section",
+    "component": "Section",
+    "eyebrow": "EXPLORE",
+    "title": "Play with a function",
+    "child": "graph"
+  },
+  {
+    "id": "graph",
+    "component": "GraphExplorer",
+    "title": { "path": "/graph/title" },
+    "expression": { "path": "/graph/expression" },
+    "params": { "path": "/graph/params" },
+    "xRange": { "path": "/graph/xRange" }
+  },
+
+  {
+    "id": "quiz-section",
+    "component": "Section",
+    "eyebrow": "PRACTICE",
+    "title": "Test yourself",
+    "child": "quizgame"
+  },
+  { "id": "quizgame", "component": "QuizGame", "title": "Lecture 3", "questions": { "path": "/quiz" } },
+
+  {
+    "id": "progress-section",
+    "component": "Section",
+    "eyebrow": "STUDY",
+    "title": "Your mastery",
+    "child": "progress-card"
+  },
+  { "id": "progress-card", "component": "Card", "child": "progress-tracker" },
+  { "id": "progress-tracker", "component": "ProgressTracker", "items": { "path": "/progress" } },
+
+  {
+    "id": "takeaway-callout",
+    "component": "Callout",
+    "tone": "info",
+    "title": "Key takeaway",
+    "body": { "path": "/takeaway" }
+  }
+]

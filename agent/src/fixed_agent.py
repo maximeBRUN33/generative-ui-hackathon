@@ -30,162 +30,202 @@ from langgraph.checkpoint.memory import MemorySaver
 from src.catalog import CATALOG_ID, CATALOG_PROMPT
 
 SCHEMA_DIR = Path(__file__).parent / "a2ui" / "schemas"
-DASHBOARD_SCHEMA = a2ui.load_schema(SCHEMA_DIR / "dashboard.json")
-SURFACE = "pdf-dashboard"
+WORKSPACE_SCHEMA = a2ui.load_schema(SCHEMA_DIR / "workspace.json")
+SURFACE = "study-workspace"
 
 
-# NOTE (Gemini typed-array fix): every list parameter on render_dashboard
+# NOTE (Gemini typed-array fix): every list parameter on render_workspace
 # below is typed as `list[<TypedDict>]`, NOT `list[dict]`. Gemini's
 # function-declaration validator rejects untyped arrays with
 # "parameters.properties[X].items: missing field". A TypedDict compiles to a
 # concrete object schema, so these arrays carry the `items` Gemini requires.
 # Keep them typed — do not loosen to `list[dict]`.
-class Kpi(TypedDict):
-    label: str
-    value: str
-    delta: str
-    caption: str
+class Concept(TypedDict):
+    name: str
+    definition: str
+    difficulty: str
+    emoji: str
 
 
-class Point(TypedDict):
+class Progress(TypedDict):
     label: str
+    value: float
+    tone: str
+
+
+class QuizItem(TypedDict):
+    question: str
+    options: list[str]
+    correctIndex: int
+    explanation: str
+
+
+class GraphParam(TypedDict):
+    name: str
+    min: float
+    max: float
     value: float
 
 
-class Row(TypedDict):
-    name: str
-    category: str
-    value: str
-    delta: str
-
-
-class ScopeOption(TypedDict):
+class CMNode(TypedDict):
+    id: str
     label: str
-    value: str
+    level: int
+
+
+# `from` is a Python keyword, so CMEdge must be defined functionally.
+CMEdge = TypedDict("CMEdge", {"from": str, "to": str})
 
 
 @tool
-def render_dashboard(
+def render_workspace(
     eyebrow: str,
     title: str,
     subtitle: str,
-    kpis: list[Kpi],
-    trend: list[Point],
-    share: list[Point],
-    rows: list[Row],
-    scope_options: list[ScopeOption],
-    scope_selected: str,
+    concepts: list[Concept],
+    progress: list[Progress],
+    takeaway: str,
+    concept_nodes: list[CMNode],
+    concept_edges: list[CMEdge],
+    graph_title: str,
+    graph_expression: str,
+    graph_params: list[GraphParam],
+    graph_x_min: float,
+    graph_x_max: float,
+    quiz: list[QuizItem],
 ) -> str:
-    """Render the interactive dashboard for the loaded PDF.
+    """Render the interactive study workspace for the lecture PDF.
 
-    Pass data INLINE. Call ONCE per turn.
+    This is Copilearn's content-adaptive learning environment: a concept map,
+    topic cards, an interactive function grapher, a scored quiz, and a mastery
+    tracker. Pass data INLINE. Call ONCE per turn.
 
     Required shapes:
-      - kpis: EXACTLY 4 cards. Each {label, value, delta, caption}.
+      - concepts: EXACTLY 6 flip-cards. Each {name, definition, difficulty, emoji}.
+          * `name`       = the concept/term, short (<= 4 words). Shown on the
+                           card front.
+          * `definition` = ELI5. Explain it like the reader is a smart 12-year-old
+                           who has never seen the topic: ONE short sentence, plain
+                           words, ideally a tiny everyday analogy. NO jargon, NO
+                           formulas. This is the card back. (e.g. for duration:
+                           "How long, on average, until you get your money back —
+                           longer means the price swings more when rates move.")
+          * `difficulty` = ONE word: "Core", "Intermediate", or "Advanced".
+          * `emoji`      = ONE emoji that visually hints the idea (e.g. 📉 ⏳ 🎢 🛡️).
+        If the lecture has fewer than 6 headline concepts, split the richest
+        ones so you always return exactly 6.
 
-        STRICT FIELD RULES (very important; the badge breaks if you ignore):
-          * `value`   = the headline number, formatted ("$94,930M", "23.4%",
-                        "1.2M units"). 1–8 chars typically.
-          * `delta`   = JUST the magnitude of change. Format: "+X%", "-X%",
-                        or "" (empty string when there's no comparison).
-                        MAX 8 chars. NEVER prose. NEVER "vs. last quarter"
-                        or "vs. $89,498M". The arrow and color come from
-                        the renderer.
-                        Examples: "+6.1%", "-3%", "+12%", "+$2.4B", ""
-                        Bad:      "↑ vs. $89,498M in Q4 FY23"
-                                  "up 6% YoY"
-                                  "increased from $89,498M"
-          * `caption` = the comparison/context sentence ("vs. $89,498M in
-                        Q4 FY23", "Products $69,958M; Services $24,972M",
-                        "All-time high"). Up to ~80 chars. This is where
-                        the prose goes.
+      - progress: ONE entry per concept (6), SAME order. {label, value, tone}.
+          * `value` = mastery percent 0–100 (0 on the first render).
+          * `tone`  = "default" | "positive" | "warning".
 
-      - trend: 6–12 points. {label, value:number}.
-      - share: 3–5 slices. {label, value:number}.
-      - rows: 5–8 table rows. Same delta rule applies: row.delta is
-        SHORT ("+6%", "-3%", ""). Verbose comparisons belong elsewhere.
-      - scope_options: 3–6 chips the user can click to re-scope. Each
-        {label, value}. Example for an Apple earnings PDF:
-          [{label:"Q4 FY24", value:"q4_fy24"},
-           {label:"FY24",    value:"fy24"},
-           {label:"By segment", value:"by_segment"},
-           {label:"By region",  value:"by_region"}]
-        Tailor the options to what THIS document actually supports.
-      - scope_selected: the `value` of the currently active option.
+      - takeaway: ONE sentence — the single most important idea.
+
+      - concept_nodes / concept_edges: the concept map. nodes are
+        {id, label, level} where level 0 = earliest topic (left), and edges are
+        {from, to} (referencing node ids) showing how concepts build on each
+        other. Usually mirror the 6 concepts plus any capstone.
+
+      - graph_*: an interactive function for the EXPLORE section.
+          * graph_expression = a formula in `x` plus any named params, e.g.
+            "a*x^2 + b*x + c". Supports + - * / ^, parentheses, unary minus,
+            sin/cos/tan/exp/ln/log/sqrt/abs, constants pi/e.
+          * graph_params = sliders {name, min, max, value} for each param used
+            in the expression (use the SAME names as in the expression).
+          * graph_x_min / graph_x_max = the x-axis range to plot over.
+        Pick a function genuinely from the lecture (a key example or an
+        objective to optimize).
+
+      - quiz: 6–8 multiple-choice questions {question, options (4 strings),
+        correctIndex (0-based), explanation}. Make it feel like real exam prep,
+        not just definition recall: mix EASY warm-ups, APPLICATION questions
+        ("given X, what happens to Y?"), and 1–2 HARDER ones that combine
+        concepts or use small numbers from the lecture. Plausible distractors;
+        a one-line explanation each. correctIndex MUST point at the right option.
     """
     payload = {
         "eyebrow": eyebrow,
         "title": title,
         "subtitle": subtitle,
-        "kpis": kpis,
-        "trend": trend,
-        "share": share,
-        "rows": rows,
-        "scope": {"options": scope_options, "selected": scope_selected},
+        "concepts": concepts,
+        "progress": progress,
+        "takeaway": takeaway,
+        "conceptMap": {"nodes": concept_nodes, "edges": concept_edges},
+        "graph": {
+            "title": graph_title,
+            "expression": graph_expression,
+            "params": graph_params,
+            "xRange": [graph_x_min, graph_x_max],
+        },
+        "quiz": quiz,
     }
     return a2ui.render(
         operations=[
             a2ui.create_surface(SURFACE, catalog_id=CATALOG_ID),
-            a2ui.update_components(SURFACE, DASHBOARD_SCHEMA),
+            a2ui.update_components(SURFACE, WORKSPACE_SCHEMA),
             a2ui.update_data_model(SURFACE, payload),
         ]
     )
 
 
 SYSTEM_PROMPT = f"""\
-You build and maintain a live dashboard from the user's PDF.
+You are Copilearn, a study coach. You turn a student's lecture slides (a PDF)
+into a live study workspace whose interface is GENERATED FROM THE CONTENT: a
+concept map, topic cards, an interactive function grapher, a scored quiz, and a
+mastery tracker.
+
+This deployment is tuned for MATH / quantitative lectures (functions, graphs,
+differentiation, optimization, and their applications — including
+utility/risk and portfolio optimization). Teach clearly, for a student seeing
+the material for the first time.
 
 ## How a turn works
 
-The user may do three things on any turn:
-  A) Attach a new PDF + chat (initial render).
-  B) Send a chat message ("re-render focused on energy storage",
-     "what was operating margin?", "compare last quarter").
-  C) Click a scope chip on the dashboard. The runtime delivers this as a
-     tool result `log_a2ui_event` with content like:
-        User performed action "select_chip" on surface "pdf-dashboard".
-        Context: {{"value": "fy24", "label": "Scope"}}
+  A) Attach a lecture PDF + chat (initial render).
+  B) Send a chat message ("focus on optimization", "explain stationary points",
+     "make the quiz harder", "more practice").
+  C) Tap a node in the concept map. The runtime delivers this as a tool result
+     `log_a2ui_event`:
+        User performed action "focus_topic" on surface "study-workspace".
+        Context: {{"topic": "Optimization", "id": "optimization"}}
 
-In every case, decide whether to re-render the dashboard, answer in chat,
-or both.
+In every case, decide whether to re-render the workspace, answer in chat, or both.
 
 ## The render contract
 
-When you render, call `render_dashboard(...)` ONCE with structured data:
-  - 4 KPIs, 6–12 trend points, 3–5 share slices, 5–8 rows.
-  - `scope_options`: 3–6 chips tailored to THIS PDF. Examples of good
-    chip sets:
-      - Apple Q4 PDF → [Q4 FY24, FY24, By segment, By region, By category]
-      - Tesla Q3 PDF → [Q3 '24, By model, By region, Automotive vs Energy,
-                       Trailing 4 quarters]
-  - `scope_selected`: which chip is active. Default to the most natural
-    starting scope for the document. After a chip click, set this to the
-    clicked value.
+Call `render_workspace(...)` ONCE with structured data:
+  - 6 concepts {{name, definition, difficulty}} drawn from the lecture.
+  - progress: one per concept (6), same order, value 0 on first render.
+  - takeaway: the single most important idea, one sentence.
+  - concept_nodes / concept_edges: a concept map of how the topics build on
+    each other (level 0 = earliest), usually mirroring the 6 concepts.
+  - graph_*: an interactive function genuinely from the lecture — a key example
+    (e.g. "a*x^2 + b*x + c") or an objective to optimize — with slider params
+    and an x-range.
+  - quiz: 4–6 scored multiple-choice questions from the lecture.
 
-When the user (or a chip click) asks to change scope:
-  - Re-extract the data for the new scope from the PDF text.
-  - Re-call render_dashboard with the SAME surfaceId so the canvas
-    updates in place. The scope_selected reflects the new active chip.
+When the user focuses a topic (chat or a concept-map tap):
+  - Re-call render_workspace with the SAME surfaceId. Keep the 6 concepts but
+    deepen the FOCUSED concept's definition, and you may point graph_* at a
+    function for that topic. Keep quiz stable unless asked to change it.
+When the user asks for "harder" / "more practice": regenerate the quiz with
+tougher questions.
 
 ## Hard rules
 
-- Render the dashboard whenever the user attaches a PDF (initial), asks
-  to re-render in any way, or clicks a chip.
-- Call `render_dashboard` AT MOST ONCE per turn. Never twice.
-- Use ONLY numbers that actually appear in the document.
-- If the user asks an analytical question that does NOT require a layout
-  change (e.g. "what was operating margin?"), answer in chat without
-  re-rendering. 1–3 sentences max. Cite the number.
-- If the user wants to invent a brand-new visualization not covered by
-  the fixed schema (e.g. "show a sankey diagram"), tell them to use the
-  Dynamic tab.
+- Render the workspace when the user attaches a PDF, asks to re-focus, or taps
+  a concept node.
+- Call `render_workspace` AT MOST ONCE per turn. Never twice.
+- Teach from what is ACTUALLY in the lecture. Clear, beginner-friendly.
+- For a quick conceptual question that needs no layout change, answer in chat
+  (1–3 sentences) without re-rendering.
+- For ad-hoc flashcards or a one-off quiz, point them to "Study tools" (Dynamic).
 
 ## Chat tone
 
-Be helpful, brief, conversational. After the first render, you can
-suggest one or two follow-ups the user might click ("Tap *FY24* for the
-full-year view" or "Want me to break it down by segment?"). Don't list
-more than two suggestions.
+Warm, encouraging, brief — like a good TA. After the first render suggest one or
+two next steps ("Drag the a-slider negative to flip the parabola" or "Tap
+*Optimization* in the map for the deeper version"). Max two.
 
 {CATALOG_PROMPT}
 """
@@ -217,11 +257,11 @@ def build_fixed_agent():
         # updateComponents + updateDataModel wrapped in a2ui_operations).
         from src.offline_fixed import build_offline_fixed_agent
 
-        return build_offline_fixed_agent(render_dashboard, SYSTEM_PROMPT)
+        return build_offline_fixed_agent(render_workspace, SYSTEM_PROMPT)
 
     return create_agent(
         model=_build_model(),
-        tools=[render_dashboard],
+        tools=[render_workspace],
         # CopilotKitMiddleware forwards frontend tools + agent context (e.g.
         # useAgentContext payloads) to the LLM.
         middleware=[CopilotKitMiddleware()],

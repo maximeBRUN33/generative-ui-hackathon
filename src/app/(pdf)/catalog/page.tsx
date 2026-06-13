@@ -13,7 +13,14 @@ import { catalog, CATALOG_ID } from "@/a2ui/catalog";
  * how the agent emits surfaces over the wire so the showcase doubles as
  * a sanity check on the catalog. */
 type Example = {
-  group: "layout" | "content" | "data" | "interactive";
+  group:
+    | "layout"
+    | "content"
+    | "data"
+    | "interactive"
+    | "study"
+    | "math"
+    | "open";
   name: string;
   blurb: string;
   surface: {
@@ -566,6 +573,197 @@ const EXAMPLES: Example[] = [
       data: { regions: ["na", "emea"] },
     },
   },
+  {
+    group: "study",
+    name: "Flashcard",
+    blurb:
+      "Click-to-flip study card. Front shows the term, tap to reveal the definition. Compose a Grid of them for a deck.",
+    surface: {
+      components: [
+        {
+          id: "root",
+          component: "Flashcard",
+          emoji: "⏳",
+          front: "Duration",
+          back: "How long, on average, until you get your money back — longer means the price swings more when rates move.",
+        },
+      ],
+    },
+  },
+  {
+    group: "study",
+    name: "QuizQuestion",
+    blurb:
+      "Multiple-choice practice question with instant feedback and an explanation. Stack several for a quiz.",
+    surface: {
+      components: [
+        {
+          id: "root",
+          component: "QuizQuestion",
+          question: "When market interest rates rise, a bond's price…",
+          options: ["Rises", "Falls", "Is unchanged", "Doubles"],
+          correctIndex: 1,
+          explanation:
+            "Bond prices move inversely to yields — higher rates make existing bonds worth less.",
+        },
+      ],
+    },
+  },
+  {
+    group: "study",
+    name: "ProgressTracker",
+    blurb:
+      "Mastery bars, one per concept (0–100%). Path-bindable so the agent can fill it from extracted data.",
+    surface: {
+      components: [
+        {
+          id: "root",
+          component: "ProgressTracker",
+          items: { path: "/progress" },
+        },
+      ],
+      data: {
+        progress: [
+          { label: "Price–yield", value: 80, tone: "positive" },
+          { label: "Duration", value: 55, tone: "default" },
+          { label: "Convexity", value: 30, tone: "warning" },
+          { label: "Immunization", value: 10, tone: "default" },
+        ],
+      },
+    },
+  },
+  {
+    group: "study",
+    name: "RateShockSimulator",
+    blurb:
+      "Interactive bond interest-rate-risk simulator. Drag the yield slider to compare the actual repriced value against the duration-only and duration+convexity estimates. All bond math is computed in the widget.",
+    surface: {
+      components: [
+        {
+          id: "root",
+          component: "RateShockSimulator",
+          title: "9% coupon bond, 5-year",
+          faceValue: 1000,
+          couponRate: 9,
+          maturityYears: 5,
+          ytm: 9,
+          frequency: 2,
+        },
+      ],
+    },
+  },
+  {
+    group: "study",
+    name: "QuizGame",
+    blurb:
+      "A scored, gamified quiz: one question at a time with points, a streak bonus, and a final score screen. Use it when the user wants to play or compete.",
+    surface: {
+      components: [
+        {
+          id: "root",
+          component: "QuizGame",
+          title: "Interest Rate Risk",
+          questions: [
+            {
+              question:
+                "If market interest rates rise, what happens to an existing bond's price?",
+              options: ["It rises", "It falls", "No change", "It goes to par"],
+              correctIndex: 1,
+              explanation: "Prices move inversely to yields.",
+            },
+            {
+              question: "Which bond is MOST sensitive to rate changes?",
+              options: [
+                "Short maturity, high coupon",
+                "Long maturity, low coupon",
+                "Short maturity, low coupon",
+                "Long maturity, high coupon",
+              ],
+              correctIndex: 1,
+              explanation: "Longer maturity and lower coupon → more sensitive.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    group: "open",
+    name: "FreeformUI",
+    blurb:
+      "The escape hatch: the agent writes raw HTML/SVG/CSS and it renders in a sandboxed iframe (no external network, theme tokens injected). Use it for bespoke visuals the catalog can't express — here, a hand-drawn price–yield curve.",
+    surface: {
+      components: [
+        {
+          id: "root",
+          component: "FreeformUI",
+          title: "Agent-drawn price–yield curve",
+          height: 210,
+          html: [
+            "<div style=\"padding:14px 16px;border-radius:14px;background:var(--surface)\">",
+            "<div style=\"font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);font-family:ui-monospace,monospace\">Price–yield relationship</div>",
+            "<svg viewBox=\"0 0 320 150\" width=\"100%\" style=\"margin-top:8px\">",
+            "<line x1=\"38\" y1=\"12\" x2=\"38\" y2=\"122\" stroke=\"var(--line)\" stroke-width=\"1.5\"/>",
+            "<line x1=\"38\" y1=\"122\" x2=\"304\" y2=\"122\" stroke=\"var(--line)\" stroke-width=\"1.5\"/>",
+            "<path d=\"M46 24 Q120 132 298 116\" fill=\"none\" stroke=\"var(--ink)\" stroke-width=\"2.5\"/>",
+            "<circle cx=\"150\" cy=\"83\" r=\"4\" fill=\"var(--lilac)\"/>",
+            "<text x=\"16\" y=\"70\" font-size=\"10\" fill=\"var(--ink-2)\" transform=\"rotate(-90 16 70)\">Price</text>",
+            "<text x=\"250\" y=\"140\" font-size=\"10\" fill=\"var(--ink-2)\">Yield →</text>",
+            "</svg>",
+            "<p style=\"font-size:13px;color:var(--ink-2);margin:6px 0 0\">Price falls as yield rises — and the curve bows (convexity).</p>",
+            "</div>",
+          ].join(""),
+        },
+      ],
+    },
+  },
+  {
+    group: "math",
+    name: "GraphExplorer",
+    blurb:
+      "Interactive function plotter. The agent supplies a math expression in x plus named params; drag the sliders and the curve re-plots live (safe evaluator, no eval). Maps 'functions → graph explorer'.",
+    surface: {
+      components: [
+        {
+          id: "root",
+          component: "GraphExplorer",
+          title: "a·x² + b·x + c",
+          expression: "a*x^2 + b*x + c",
+          params: [
+            { name: "a", min: -2, max: 2, value: 1 },
+            { name: "b", min: -5, max: 5, value: 0 },
+            { name: "c", min: -5, max: 5, value: -3 },
+          ],
+          xRange: [-6, 6],
+        },
+      ],
+    },
+  },
+  {
+    group: "math",
+    name: "ConceptMap",
+    blurb:
+      "A node-and-edge overview of how a lecture's concepts build on each other (levels = columns). Tapping a node fires a 'focus_topic' action so the agent can zoom in.",
+    surface: {
+      components: [
+        {
+          id: "root",
+          component: "ConceptMap",
+          nodes: [
+            { id: "fn", label: "Functions", level: 0 },
+            { id: "deriv", label: "Derivatives", level: 1 },
+            { id: "opt", label: "Optimization", level: 2 },
+            { id: "util", label: "Utility & risk", level: 3 },
+          ],
+          edges: [
+            { from: "fn", to: "deriv" },
+            { from: "deriv", to: "opt" },
+            { from: "opt", to: "util" },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 const GROUPS: { key: Example["group"]; label: string }[] = [
@@ -573,6 +771,9 @@ const GROUPS: { key: Example["group"]; label: string }[] = [
   { key: "content", label: "Content" },
   { key: "data", label: "Data viz" },
   { key: "interactive", label: "Interactive" },
+  { key: "study", label: "Study" },
+  { key: "math", label: "Math" },
+  { key: "open", label: "Open UI" },
 ];
 
 export default function CatalogPage() {
