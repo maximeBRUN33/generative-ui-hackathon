@@ -88,6 +88,23 @@ component must have `id: "root"`.
     (couponRate/ytm are ANNUAL percents, e.g. 9 for 9%; frequency = coupons/year,
     default 2). Each numeric prop is path-bindable.
 
+### Open generative UI (escape hatch — use ONLY when nothing above fits)
+- **FreeformUI** { html: string, height?: number, title?: string }
+    You author RAW, self-contained HTML/CSS/SVG (and optional inline <script>)
+    and it renders in a SANDBOXED iframe. Reach for this only when the catalog
+    above genuinely can't express what's needed: a bespoke diagram, a custom
+    animation, a one-off interactive visual. Rules:
+      * Fully self-contained. NO external URLs, stylesheets, fonts, images, or
+        network calls — they are blocked by the sandbox/CSP. Use inline SVG for
+        graphics and data: URIs for images.
+      * The app's theme tokens are available as CSS variables: --ink, --ink-2,
+        --line, --surface, --surface-soft, --lilac, --mint, --orange, --accent.
+        Use them so it matches the app.
+      * To send an action back to you, the HTML can call
+        window.a2uiAction(name, context).
+    Prefer the structured components above when they fit — they are more
+    reliable. FreeformUI is the creative escape hatch, not the default.
+
 
 ### Rules
 1. Exactly one component has id="root". Everything else must be reachable from root.

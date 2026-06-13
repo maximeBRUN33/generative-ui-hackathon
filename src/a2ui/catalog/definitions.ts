@@ -364,6 +364,27 @@ export const definitions = {
       ]),
     }),
   },
+
+  // ── Open generative UI escape hatch ─────────────────────────────────────
+  // The one component that is NOT a fixed shape: the agent authors raw
+  // HTML/SVG/CSS and it renders in a sandboxed iframe. This is how Copilearn
+  // does "open" generative UI without giving up the safety of the catalog for
+  // everything else.
+  FreeformUI: {
+    description:
+      "Open, agent-authored UI. The agent writes raw, self-contained " +
+      "HTML/CSS/SVG (plus optional inline <script>) and it renders in a " +
+      "SANDBOXED iframe with the app's theme tokens available as CSS " +
+      "variables. Use ONLY when no other catalog component fits — a bespoke " +
+      "diagram, a custom animation, a one-off interactive. No external URLs " +
+      "or network calls (blocked). To send an action back to the agent the " +
+      "HTML calls window.a2uiAction(name, context).",
+    props: z.object({
+      html: z.string(),
+      height: z.number().optional(),
+      title: stringOrPath.optional(),
+    }),
+  },
 };
 
 export type Definitions = typeof definitions;

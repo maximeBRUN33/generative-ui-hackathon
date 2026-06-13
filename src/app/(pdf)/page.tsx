@@ -62,7 +62,7 @@ export default function Home() {
                 The design system
               </span>
               <h2 className="text-[22px] font-semibold tracking-tight mt-1">
-                26 components, one catalog
+                27 components, one catalog
               </h2>
             </div>
             <Link
@@ -154,6 +154,7 @@ const CATALOG_GROUPS = [
       "RateShockSimulator",
     ],
   },
+  { short: "OPEN", items: ["FreeformUI"] },
 ];
 
 function ModeCard({

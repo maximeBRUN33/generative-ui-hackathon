@@ -1,7 +1,7 @@
 "use client";
 
 import { clsx } from "clsx";
-import { useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import {
   Bar,
   BarChart as RBarChart,
@@ -1562,6 +1562,106 @@ const QuizGame = ({
   );
 };
 
+// ── FreeformUI (open generative surface) ───────────────────────────────────
+// The agent writes raw HTML/CSS/SVG; we render it in a SANDBOXED iframe. The
+// security model is the whole point:
+//   • sandbox="allow-scripts" WITHOUT "allow-same-origin" → the frame is an
+//     opaque origin. Agent code can't read our cookies, localStorage, or DOM,
+//     and can't make same-origin requests. (Never add allow-same-origin here —
+//     combined with allow-scripts it would defeat the sandbox entirely.)
+//   • a Content-Security-Policy in the document blocks network exfiltration
+//     (connect-src 'none') and external resource loads, so even injected
+//     scripts can't phone home.
+// Theme tokens are mirrored in so freeform content matches the app. Two-way
+// talk uses postMessage: the frame calls window.a2uiAction(name, ctx) and we
+// validate the source before turning it into an AG-UI dispatch.
+
+// Brand tokens mirrored from src/a2ui/theme.css + pdf-analyst.css so the
+// sandboxed frame (which can't see the parent stylesheet) still looks native.
+const FREEFORM_TOKENS = `
+  --ink:#010507; --ink-2:#2b2b2b; --line:#dbdbe5; --surface:#ffffff;
+  --surface-soft:#f7f7f9; --lilac:#bec2ff; --mint:#85ecce; --orange:#ffac4d;
+  --accent:#bec2ff; --muted:#45454a; --muted-2:#5a5a60;
+`;
+
+function buildFreeformDoc(html: string, instanceId: string): string {
+  const id = JSON.stringify(instanceId);
+  // CSP: allow inline styles/scripts and data: images (for self-contained
+  // content), block everything else — crucially connect-src 'none' so the
+  // frame cannot exfiltrate via fetch/XHR/WebSocket/beacon.
+  return [
+    "<!doctype html><html><head><meta charset='utf-8'>",
+    "<meta http-equiv='Content-Security-Policy' content=\"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'\">",
+    "<style>:root{" + FREEFORM_TOKENS + "}",
+    "*{box-sizing:border-box}html,body{margin:0;padding:0}",
+    "body{padding:2px;font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--ink);background:transparent;font-size:14px;line-height:1.5}",
+    "</style></head><body>",
+    html,
+    "<script>(function(){",
+    "function report(){try{parent.postMessage({__a2ui_freeform:true,id:" +
+      id +
+      ",type:'height',height:document.documentElement.scrollHeight},'*')}catch(e){}}",
+    "window.addEventListener('load',report);setTimeout(report,60);setTimeout(report,400);",
+    "try{new ResizeObserver(report).observe(document.body)}catch(e){}",
+    "window.a2uiAction=function(name,context){try{parent.postMessage({__a2ui_freeform:true,id:" +
+      id +
+      ",type:'action',name:String(name),context:context||{}},'*')}catch(e){}};",
+    "})();<\/script></body></html>",
+  ].join("");
+}
+
+const FreeformUI = ({
+  props,
+  dispatch,
+}: RendererProps<{ html: string; height?: number; title?: string }>) => {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const instanceId = useId();
+  const [height, setHeight] = useState(props.height ?? 320);
+
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      // Only trust messages from OUR iframe's window, with our tag + id.
+      if (!iframeRef.current || e.source !== iframeRef.current.contentWindow)
+        return;
+      const d = e.data;
+      if (!d || d.__a2ui_freeform !== true || d.id !== instanceId) return;
+      if (d.type === "height" && typeof d.height === "number") {
+        setHeight(Math.min(2400, Math.max(80, d.height + 6)));
+      } else if (d.type === "action" && typeof d.name === "string") {
+        dispatch?.({
+          event: { name: d.name, context: d.context ?? {} },
+        } as never);
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [instanceId, dispatch]);
+
+  return (
+    <div>
+      {props.title && (
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[14px] font-semibold text-[var(--ink)]">
+            {props.title}
+          </span>
+          <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--ink-2)]">
+            generated UI
+          </span>
+        </div>
+      )}
+      <iframe
+        ref={iframeRef}
+        title={typeof props.title === "string" ? props.title : "Generated UI"}
+        // No allow-same-origin: keep the frame an opaque, isolated origin.
+        sandbox="allow-scripts"
+        srcDoc={buildFreeformDoc(props.html ?? "", instanceId)}
+        style={{ width: "100%", height, border: 0, display: "block" }}
+        className="rounded-[14px] border border-[var(--line)] bg-[var(--surface)]"
+      />
+    </div>
+  );
+};
+
 function Slot({ render }: { render: ReactNode }) {
   return <>{render}</>;
 }
@@ -1593,4 +1693,5 @@ export const renderers = {
   ProgressTracker,
   RateShockSimulator,
   QuizGame,
+  FreeformUI,
 };

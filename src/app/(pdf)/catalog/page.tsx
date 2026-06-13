@@ -13,7 +13,7 @@ import { catalog, CATALOG_ID } from "@/a2ui/catalog";
  * how the agent emits surfaces over the wire so the showcase doubles as
  * a sanity check on the catalog. */
 type Example = {
-  group: "layout" | "content" | "data" | "interactive" | "study";
+  group: "layout" | "content" | "data" | "interactive" | "study" | "open";
   name: string;
   blurb: string;
   surface: {
@@ -680,6 +680,36 @@ const EXAMPLES: Example[] = [
       ],
     },
   },
+  {
+    group: "open",
+    name: "FreeformUI",
+    blurb:
+      "The escape hatch: the agent writes raw HTML/SVG/CSS and it renders in a sandboxed iframe (no external network, theme tokens injected). Use it for bespoke visuals the catalog can't express — here, a hand-drawn price–yield curve.",
+    surface: {
+      components: [
+        {
+          id: "root",
+          component: "FreeformUI",
+          title: "Agent-drawn price–yield curve",
+          height: 210,
+          html: [
+            "<div style=\"padding:14px 16px;border-radius:14px;background:var(--surface)\">",
+            "<div style=\"font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);font-family:ui-monospace,monospace\">Price–yield relationship</div>",
+            "<svg viewBox=\"0 0 320 150\" width=\"100%\" style=\"margin-top:8px\">",
+            "<line x1=\"38\" y1=\"12\" x2=\"38\" y2=\"122\" stroke=\"var(--line)\" stroke-width=\"1.5\"/>",
+            "<line x1=\"38\" y1=\"122\" x2=\"304\" y2=\"122\" stroke=\"var(--line)\" stroke-width=\"1.5\"/>",
+            "<path d=\"M46 24 Q120 132 298 116\" fill=\"none\" stroke=\"var(--ink)\" stroke-width=\"2.5\"/>",
+            "<circle cx=\"150\" cy=\"83\" r=\"4\" fill=\"var(--lilac)\"/>",
+            "<text x=\"16\" y=\"70\" font-size=\"10\" fill=\"var(--ink-2)\" transform=\"rotate(-90 16 70)\">Price</text>",
+            "<text x=\"250\" y=\"140\" font-size=\"10\" fill=\"var(--ink-2)\">Yield →</text>",
+            "</svg>",
+            "<p style=\"font-size:13px;color:var(--ink-2);margin:6px 0 0\">Price falls as yield rises — and the curve bows (convexity).</p>",
+            "</div>",
+          ].join(""),
+        },
+      ],
+    },
+  },
 ];
 
 const GROUPS: { key: Example["group"]; label: string }[] = [
@@ -688,6 +718,7 @@ const GROUPS: { key: Example["group"]; label: string }[] = [
   { key: "data", label: "Data viz" },
   { key: "interactive", label: "Interactive" },
   { key: "study", label: "Study" },
+  { key: "open", label: "Open UI" },
 ];
 
 export default function CatalogPage() {
