@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CopilotChat, useAgent } from "@copilotkit/react-core/v2";
 import { SiteNav } from "@/components/pdf-analyst/Brand";
 import { SurfaceCanvas, CanvasEmptyState } from "@/components/pdf-analyst/SurfaceCanvas";
 import { FilteredUserMessage } from "@/components/pdf-analyst/FilteredUserMessage";
 import { FilteredAssistantMessage } from "@/components/pdf-analyst/FilteredAssistantMessage";
 import { Split } from "@/components/pdf-analyst/Split";
+import { PixelLanding } from "@/components/pdf-analyst/PixelLanding";
+import { surfaceBus } from "@/a2ui/surface-bus";
 import { extractPdfText } from "@/lib/pdf";
 
 const AGENT_ID = "fixed_agent";
@@ -18,6 +20,17 @@ export default function FixedPage() {
     pages: number;
     chars: number;
   } | null>(null);
+
+  // Show the Pixel Campus landing until the agent paints a surface. The chat +
+  // canvas stay mounted underneath so the surface pipeline (MirrorRenderer →
+  // surfaceBus) keeps working; the landing is just a full-screen cover.
+  const [hasSurface, setHasSurface] = useState(false);
+  useEffect(() => {
+    setHasSurface(!!surfaceBus.snapshot(AGENT_ID).surfaceId);
+    return surfaceBus.subscribe(AGENT_ID, (snap) => {
+      if (snap.surfaceId) setHasSurface(true);
+    });
+  }, []);
 
   return (
     <div className="h-screen flex flex-col bg-[var(--bg)]">
@@ -105,6 +118,8 @@ export default function FixedPage() {
         }
       />
       </div>
+
+      {!hasSurface && <PixelLanding agentId={AGENT_ID} />}
     </div>
   );
 }

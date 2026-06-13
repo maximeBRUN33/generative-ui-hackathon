@@ -1,0 +1,143 @@
+/* Hide the CopilotKit dev web-inspector popup ("early access" toast) — it's
+ * dev chrome that clutters the demo. (showDevConsole=false doesn't cover it.) */
+cpk-web-inspector {
+  display: none !important;
+}
+
+/* Pixel Campus — 16-bit design system (see DESIGN.md). Scoped to
+ * .pixel-campus so it never touches the rest of the app. Hard edges, flat
+ * offset shadows, square corners, pixelated rendering. */
+
+.pixel-campus {
+  --pc-primary: #f4e4c1;
+  --pc-ink: #1b2a4a;
+  --pc-outline: #101a30;
+  --pc-coral: #f0596a;
+  --pc-awning: #e8503c;
+  --pc-gold: #ffc94d;
+  --pc-sky-top: #1c5fb0;
+  --pc-sky-bottom: #5ab6e8;
+  --pc-cloud: #eaf4f8;
+  --pc-ground: #7e8a99;
+  --pc-roof: #c8432e;
+  --pc-building: #3e6fa8;
+  --pc-success: #5fbf6a;
+
+  image-rendering: pixelated;
+  font-family: var(--font-vt323), monospace;
+  color: var(--pc-ink);
+}
+
+/* Hard-banded sky (no smooth blend). */
+.pc-sky {
+  background: linear-gradient(
+    to bottom,
+    var(--pc-sky-top) 0%,
+    var(--pc-sky-top) 22%,
+    #2a72c0 22%,
+    #2a72c0 44%,
+    #3f93d4 44%,
+    #3f93d4 66%,
+    var(--pc-sky-bottom) 66%,
+    var(--pc-sky-bottom) 100%
+  );
+}
+
+.pc-marquee {
+  font-family: var(--font-press-start), monospace;
+  color: var(--pc-primary);
+  -webkit-text-stroke: 3px var(--pc-outline);
+  paint-order: stroke fill;
+  text-shadow: 6px 6px 0 var(--pc-outline);
+  letter-spacing: 0;
+}
+
+.pc-hud {
+  font-family: var(--font-silkscreen), monospace;
+}
+.pc-pixel-label {
+  font-family: var(--font-press-start), monospace;
+}
+
+.pc-panel {
+  background: var(--pc-primary);
+  border: 4px solid var(--pc-outline);
+  border-radius: 0;
+  box-shadow: 8px 8px 0 var(--pc-outline);
+}
+
+.pc-eyebrow {
+  font-family: var(--font-press-start), monospace;
+  background: var(--pc-sky-top);
+  color: var(--pc-primary);
+  border: 3px solid var(--pc-outline);
+  border-radius: 0;
+  box-shadow: 4px 4px 0 var(--pc-outline);
+}
+
+.pc-btn {
+  font-family: var(--font-press-start), monospace;
+  border: 4px solid var(--pc-outline);
+  border-radius: 0;
+  box-shadow: 6px 6px 0 var(--pc-outline);
+  cursor: pointer;
+  transition: transform 0.04s steps(1), box-shadow 0.04s steps(1);
+  image-rendering: pixelated;
+}
+.pc-btn:active {
+  transform: translate(6px, 6px);
+  box-shadow: 0 0 0 var(--pc-outline);
+}
+.pc-btn-primary {
+  background: var(--pc-coral);
+  color: #fff;
+}
+.pc-btn-primary:hover {
+  background: var(--pc-awning);
+}
+.pc-btn-secondary {
+  background: var(--pc-gold);
+  color: var(--pc-outline);
+}
+
+/* The dropzone is a level "portal" panel. */
+.pc-dropzone {
+  background: var(--pc-primary);
+  border: 4px dashed var(--pc-outline);
+  border-radius: 0;
+  box-shadow: 8px 8px 0 var(--pc-outline);
+  transition: background 0.05s steps(1);
+}
+.pc-dropzone.is-drag {
+  background: var(--pc-gold);
+}
+
+.pc-cloud {
+  position: absolute;
+  background: var(--pc-cloud);
+  box-shadow:
+    16px 0 0 var(--pc-cloud),
+    32px 0 0 var(--pc-cloud),
+    16px -16px 0 var(--pc-cloud);
+  image-rendering: pixelated;
+}
+
+/* simple blinking continue indicator */
+@keyframes pc-blink {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  61%,
+  100% {
+    opacity: 0;
+  }
+}
+.pc-blink {
+  animation: pc-blink 1s steps(1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pc-blink {
+    animation: none;
+  }
+}
