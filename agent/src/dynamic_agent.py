@@ -120,6 +120,11 @@ def _render_model() -> ChatGoogleGenerativeAI:
             model=os.getenv("MODEL", "gemini-3.5-flash"),
             google_api_key=os.getenv("GEMINI_API_KEY"),
             temperature=0,
+            # A full study workspace (flashcards + quiz + a FreeformUI sim) is a
+            # large tool_call. The default output cap can truncate it, leaving
+            # the forced render_a2ui call incomplete -> no tool_calls -> no
+            # surface -> the UI hangs on "Building your level". Give it room.
+            max_output_tokens=16384,
         )
     return _RENDER_MODEL
 
@@ -146,6 +151,81 @@ class _LazyRenderModel:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(_render_model(), name)
+
+
+# ── Pixel Campus simulation directive ─────────────────────────────────────
+# Every generated learning surface must include ONE interactive simulation,
+# specific to the uploaded lecture, authored as a self-contained FreeformUI
+# node in the Pixel Campus 16-bit style (docs/pixel-campus-ui-kit.html). This
+# is a PLAIN string (not an f-string) so the template's { } and quotes are
+# literal. It is appended to the generate_a2ui composer prompt below.
+PIXEL_SIM_DIRECTIVE = """
+
+## MANDATORY — a lecture-specific interactive simulation (EVERY surface)
+
+Every surface you build MUST contain exactly ONE `FreeformUI` node that is an
+interactive *simulation* of a concept FROM THIS LECTURE — a playable model with
+sliders the learner drags to see cause and effect. It must be specific to the
+lecture's real subject, never a generic placeholder. Pick the model that fits:
+- physics -> projectile / pendulum / inclined plane / wave / orbit
+- chemistry -> titration curve / reaction equilibrium / gas laws
+- biology -> population growth / predator-prey / enzyme kinetics
+- economics or finance -> supply & demand / bond price vs yield / compounding
+- math -> plot y=f(x) with the lecture's parameters as sliders
+- CS -> sorting steps / Big-O growth curves / a small state machine
+If nothing fits, model the lecture's core cause-effect relationship anyway
+(e.g. a timeline scrubber or a single-variable what-if).
+
+Author it as a SELF-CONTAINED FreeformUI node. Rules:
+- Node shape: {"id":"sim","component":"FreeformUI","title":"<short lab name>",
+  "height":460,"html":"<one self-contained HTML document>"}.
+- The html is ONE document: inline <style> + markup + inline <script>. NO
+  external URLs, fonts, images, or network calls (the sandbox blocks them).
+- Pixel Campus look: define this palette as CSS vars at the top and use it —
+  --primary:#F4E4C1; --ink:#1B2A4A; --outline:#0E1626; --tertiary:#F0596A;
+  --accent:#FFC94D; --success:#5FBF6A; --sky:#1C5FB0; --ground:#7E8A99 .
+  font-family: ui-monospace, monospace; html{image-rendering:pixelated};
+  square corners; 3-4px solid var(--outline) borders; hard offset shadows
+  (box-shadow:5px 5px 0 var(--outline)); accent-color:var(--accent) on ranges.
+- Structure: a <canvas> stage (dark bg) that DRAWS the model, 2-3
+  <input type=range> sliders bound to the lecture's real variables (label each
+  with its name + a live value), a "▶ RUN" button, and a one-line readout that
+  updates. Redraw on slider 'input' and on RUN. Guard against NaN so a value
+  never blanks the canvas.
+- Keep the JS small and dependency-free (a draw() that reads slider values and
+  paints rects/arcs). Place the simulation prominently, after a short heading.
+
+KEEP THE SIM COMPACT — the whole html must be UNDER ~45 lines / ~2KB. A long
+sim blows the response budget and the surface fails to render. One canvas, 2
+sliders, one RUN button, one readout. Minimal CSS. No comments in the html.
+
+Skeleton to ADAPT (swap the variables, labels, and the draw()/RUN math to THIS
+lecture — keep it this small):
+
+<!doctype html><meta charset=utf-8><style>
+body{font-family:ui-monospace,monospace;background:#F4E4C1;color:#1B2A4A;margin:0;padding:8px}
+canvas{display:block;width:100%;height:200px;background:#0E1626;image-rendering:pixelated;border:4px solid #0E1626}
+.r{display:grid;grid-template-columns:90px 1fr 48px;gap:8px;align-items:center;padding:6px 0}
+b{font-size:12px;text-transform:uppercase}.v{text-align:right;color:#F0596A;font-weight:700}
+input{width:100%;accent-color:#FFC94D}
+button{font-family:inherit;border:4px solid #0E1626;box-shadow:4px 4px 0 #0E1626;background:#F0596A;color:#fff;padding:8px 12px;margin-top:6px;cursor:pointer}
+</style>
+<canvas id=c width=600 height=200></canvas>
+<div class=r><b>Speed</b><input id=s1 type=range min=10 max=90 value=45><span class=v id=v1>45</span></div>
+<div class=r><b>Gravity</b><input id=s2 type=range min=2 max=20 value=10><span class=v id=v2>10</span></div>
+<button id=run>▶ RUN</button><div id=out>Drag a slider, then RUN.</div>
+<script>
+var x=c.getContext('2d');function d(){x.fillStyle='#0E1626';x.fillRect(0,0,600,200);
+var a=(+s1.value||0)*Math.PI/180,g=(+s2.value||1),vx=Math.cos(a)*8,vy=Math.sin(a)*8,t;
+x.fillStyle='#FFC94D';for(t=0;t<60;t+=0.5){var X=10+vx*t,Y=190-(vy*t-0.5*g*0.1*t*t);if(Y>190)break;x.fillRect(X,Y,4,4)}
+v1.textContent=s1.value;v2.textContent=s2.value}
+s1.oninput=d;s2.oninput=d;run.onclick=function(){d();out.textContent='Range set'};d();
+</script>
+
+Keep the other study tools too (flashcards, quiz) — the sim is ADDITIONAL.
+Output STRICT JSON: the html is the value of the FreeformUI node's "html" key,
+inner double-quotes escaped so components_json stays valid JSON.
+"""
 
 
 @tool()
@@ -192,7 +272,7 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
         "(a JSON object string) if you bind a property via {path}; otherwise "
         "pass \"{}\". Emit STRICT JSON in both string params (double-quoted "
         "keys, no trailing commas, no comments)."
-    )
+    ) + PIXEL_SIM_DIRECTIVE
 
     model_with_tool = _render_model().bind_tools(
         [render_a2ui], tool_choice="render_a2ui"
@@ -202,7 +282,29 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     )
 
     if not response.tool_calls:
-        return json.dumps({"error": "secondary LLM did not call render_a2ui"})
+        # The composer didn't return a usable tool call (e.g. the response was
+        # truncated before the forced render_a2ui call completed). Emit a real
+        # surface anyway so the client always gets a surfaceId and never hangs
+        # on "Building your level…" — a calm retry card beats an infinite
+        # spinner.
+        fallback = [
+            a2ui.create_surface("dynamic-surface", catalog_id=CATALOG_ID),
+            a2ui.update_components(
+                "dynamic-surface",
+                [
+                    {"id": "root", "component": "Stack", "gap": "md",
+                     "children": ["fb-h", "fb-c"]},
+                    {"id": "fb-h", "component": "Heading", "level": "2",
+                     "text": "Couldn't build the level"},
+                    {"id": "fb-c", "component": "Callout", "tone": "warning",
+                     "title": "Try again",
+                     "body": "The generator ran out of room composing this "
+                             "surface. Tap ↑ NEW LECTURE (or re-send) to retry "
+                             "— a shorter prompt or fewer slides usually works."},
+                ],
+            ),
+        ]
+        return a2ui.render(operations=fallback)
 
     args = response.tool_calls[0]["args"]
     surface_id = args.get("surfaceId", "dynamic-surface")
