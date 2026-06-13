@@ -54,6 +54,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.memory import MemorySaver
 
 from src.catalog import CATALOG_ID, CATALOG_PROMPT
+from src.linkup_tools import web_research
 from src.pdf_tools import query_pdf
 
 
@@ -258,27 +259,52 @@ attaches a different PDF.
 Only if NO message in the history has ever contained a
 `[Document: ...]` header should you ask the user to attach a PDF.
 
+## Your tools
+
+- `query_pdf(pdf_text, question)` — turns the lecture into structured study
+  material (flashcards, quiz, explainer, chart). Grounds the answer in the
+  uploaded course.
+- `web_research(query)` — searches the LIVE web. Use it ONLY when the learner
+  wants to go BEYOND the course: the latest developments, real-world examples,
+  current numbers / rates / prices, recent news, "what's happening now with
+  X". Returns JSON {{query, answer, sources:[{{title,url,snippet,favicon}}]}}.
+- `generate_a2ui()` — renders the answer as an A2UI surface. It is ALWAYS the
+  LAST tool call of the turn. No arguments; it reads everything from state,
+  including any query_pdf and web_research results.
+
 ## How a turn MUST go (do not deviate)
 
-1. If NO message in the conversation history has a `[Document: ...]`
-   header, reply with a single sentence: "Attach a PDF and I'll render
-   the answer." STOP. Do not call any tool.
-2. Otherwise (a PDF is available from this turn or a previous one):
-   a. ONE call to `query_pdf(pdf_text=<the document text from the most
-      recent [Document: ...] message>, question=<the user's question on
-      THIS turn>)`. The tool returns JSON with shape_hint, title,
-      summary, data. Read it silently. DO NOT type the JSON anywhere.
-   b. ONE call to `generate_a2ui()`. No arguments.
-   c. STOP. Do not call any more tools. Do not write any chat content.
-      Your final assistant message MUST be an empty string. The rendered
-      surface IS the user-visible answer.
+First decide which flow the learner's message wants, then ALWAYS finish with
+exactly one `generate_a2ui()` call.
+
+1. STUDY FLOW — the default. "Explain X", "make flashcards", "quiz me",
+   "summarize chapter 3": the answer lives in the lecture.
+   a. If NO message in the conversation history has a `[Document: ...]`
+      header, reply with a single sentence: "Attach a PDF and I'll render
+      the answer." STOP. Do not call any tool.
+   b. Otherwise: ONE call to `query_pdf(pdf_text=<the document text from the
+      most recent [Document: ...] message>, question=<the user's question on
+      THIS turn>)`. Read the JSON silently. DO NOT type it anywhere.
+   c. ONE call to `generate_a2ui()`. STOP.
+
+2. GO-DEEPER / WEB FLOW — the learner asks for the latest / real-world /
+   current / live / "in practice today" / recent-news angle.
+   a. ONE or TWO calls to `web_research(query=...)`, each a specific,
+      self-contained query. If a lecture is attached AND grounding the
+      real-world answer in it helps, you MAY also call `query_pdf` once first.
+   b. ONE call to `generate_a2ui()`. STOP.
+
+3. After `generate_a2ui()` returns you are DONE. Do not call any more tools.
+   Do not write any chat content. Your final assistant message MUST be an
+   empty string. The rendered surface IS the user-visible answer.
 
 ## Absolute hard rules. Breaking ANY of these causes a crash.
 
 - After `generate_a2ui` returns, you are DONE for this turn. Do not call
-  `query_pdf` again. Do not call `generate_a2ui` again. Do not write
+  `query_pdf`, `web_research`, or `generate_a2ui` again. Do not write
   anything except an empty string.
-- NEVER include the query_pdf JSON in your reply.
+- NEVER include the query_pdf JSON, the web_research JSON, or the raw answer
+  in your reply.
 - NEVER include any tool's return value in your reply.
 - NEVER quote the PDF text, summarize the document, or echo any part of
   `pdf_text` back into the chat.
@@ -321,6 +347,28 @@ secondary LLM will honor it. Defaults per shape_hint:
               enumerations, and Text for paragraphs. Mix with one chart
               ONLY if the question genuinely benefits from data viz.
 
+### Rendering web_research results (the go-deeper surface)
+
+When the conversation contains a `web_research` result (JSON with `answer`
+and `sources`), you have FULL creative freedom — this is the moment to show
+off generative UI. There is no fixed template:
+
+- Lead with the synthesized `answer`: a Heading + Text explainer, or a
+  Callout for the headline takeaway followed by Text paragraphs.
+- Make every claim attributable. Render `sources` as clickable citations —
+  a BulletList of titles, or a Stack/Grid of Cards (title + snippet + url).
+- For a richer "research briefing" look, author a **FreeformUI** surface:
+  a bespoke layout of source cards, a comparison panel, an annotated diagram,
+  a timeline. Reach for FreeformUI whenever the structured catalog feels too
+  plain for the answer you want to show. Keep it fully self-contained per the
+  FreeformUI catalog rules: NO external URLs, fonts, or images — so do NOT
+  embed a source `favicon` URL inside FreeformUI (the sandbox blocks it; show
+  the title + url text instead). The `favicon` field is provided for a future
+  React Citation component, which can load it.
+- If the result has an `error` field, render a small, calm Callout
+  (tone=warning): "Couldn't reach the web for that — here's what the lecture
+  says" and fall back to the lecture content if available.
+
 This is a study tool for lecture material. Prefer `flashcards` and `quiz`
 when the user asks to study, memorize, or test themselves; prefer the rich
 `text` layout for "explain X" questions. Skip charts unless the user
@@ -328,7 +376,10 @@ explicitly asks for data viz.
 
 ## Restating the loop guard
 
-- Max two tool calls per turn. query_pdf (once) + generate_a2ui (once).
+- `generate_a2ui` is ALWAYS the final tool call, exactly once.
+- Before it: EITHER `query_pdf` once (study flow) OR `web_research` one-to-two
+  times (go-deeper flow) — or `web_research` then `query_pdf` when the learner
+  wants the lecture grounded AND the live real-world layer.
 - After generate_a2ui returns, STOP IMMEDIATELY.
 - Never describe the surface in prose. The surface IS the answer.
 
@@ -343,7 +394,7 @@ def build_dynamic_agent():
     # then). Online behavior is unchanged.
     return create_agent(
         model=_LazyRenderModel(),
-        tools=[query_pdf, generate_a2ui],
+        tools=[query_pdf, web_research, generate_a2ui],
         middleware=[CopilotKitMiddleware()],
         system_prompt=SYSTEM_PROMPT,
         checkpointer=MemorySaver(),
