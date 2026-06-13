@@ -60,6 +60,13 @@ Read `HACKATHON.md` for the customization recipes.
    standalone inspector component.
 6. **Don't write new React renderers for A2UI primitives.** Use the catalog
    + theme system. The renderer is provided by `@copilotkit/a2ui-renderer`.
+7. **The front end MUST follow `DESIGN.md`.** `DESIGN.md` (the "Pixel Campus"
+   design system) is the single source of truth for how the UI looks and
+   feels — colors, typography, spacing, shadows, motion, and component style.
+   ALL front-end work obeys it: theming, branding, catalog renderers, and any
+   agent-generated / `FreeformUI` surface. When a value in code disagrees with
+   `DESIGN.md`, `DESIGN.md` wins — change the code, not the doc. Read it before
+   touching anything visual.
 
 ## Customization seams
 
@@ -67,9 +74,12 @@ These are the six grep-anchored seams a hacker (or you) edit to make this
 starter their own. Search for `CUSTOMIZATION SEAM` to find each one in code.
 
 1. **Re-theme** → `src/a2ui/theme.css` (A2UI surface tokens) +
-   `src/app/(pdf)/pdf-analyst.css` (shell brand) + `src/hooks/use-theme.tsx`
+   `src/app/(pdf)/pdf-analyst.css` (shell brand) + `src/hooks/use-theme.tsx`.
+   Use the exact color, typography, and spacing tokens from `DESIGN.md` — it
+   is the source of truth for these values (see Hard rule 7).
 2. **Re-brand the shell** → `src/components/pdf-analyst/Brand.tsx`
-   (`SiteNav`, `PageHeader`, logo/nav, page hero)
+   (`SiteNav`, `PageHeader`, logo/nav, page hero). Match the look defined in
+   `DESIGN.md`.
 3. **Swap demo data** → the uploaded **PDF is the data**. Tune extraction
    in `agent/src/pdf_tools.py` (the structured-JSON extractor the agents
    call), or feed a different document. There is no static dataset file in
@@ -142,10 +152,11 @@ When the hacker says:
   prompt summary in `agent/src/catalog.py`'s `CATALOG_PROMPT`. Run
   `pnpm validate-widget` then `pnpm smoke` before declaring done.
 - **"theme it for X"** → only edit `src/a2ui/theme.css`,
-  `src/app/(pdf)/pdf-analyst.css`, and `src/hooks/use-theme.tsx`. Don't
-  restructure components. Don't bump deps.
-- **"re-brand it"** → edit `src/components/pdf-analyst/Brand.tsx`. Don't
-  touch the chat affordances.
+  `src/app/(pdf)/pdf-analyst.css`, and `src/hooks/use-theme.tsx`. Pull the
+  tokens from `DESIGN.md` (Hard rule 7). Don't restructure components. Don't
+  bump deps.
+- **"re-brand it"** → edit `src/components/pdf-analyst/Brand.tsx`, following
+  `DESIGN.md`. Don't touch the chat affordances.
 - **"make it about Y"** (e.g. a different document type) → tune the
   extraction prompt in `agent/src/pdf_tools.py` and the agent system prompts
   in `agent/src/fixed_agent.py` / `agent/src/dynamic_agent.py`. The data is
