@@ -55,7 +55,6 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from src.catalog import CATALOG_ID, CATALOG_PROMPT
 from src.linkup_tools import web_research
-from src.pdf_tools import query_pdf
 
 
 # ── Gemini prop-stripping fix ─────────────────────────────────────────────
@@ -120,11 +119,13 @@ def _render_model() -> ChatGoogleGenerativeAI:
             model=os.getenv("MODEL", "gemini-3.5-flash"),
             google_api_key=os.getenv("GEMINI_API_KEY"),
             temperature=0,
-            # A full study workspace (flashcards + quiz + a FreeformUI sim) is a
-            # large tool_call. The default output cap can truncate it, leaving
-            # the forced render_a2ui call incomplete -> no tool_calls -> no
-            # surface -> the UI hangs on "Building your level". Give it room.
-            max_output_tokens=16384,
+            # No max_output_tokens: a fixed cap truncated the forced render_a2ui
+            # tool call mid-output (-> empty tool_calls -> "Couldn't build the
+            # level"). Letting the model use its full default output budget
+            # avoids those truncation failures. We keep generations short by
+            # asking for LESS (compact workspace + one small sim) in the prompt,
+            # not by capping tokens. The logs still print finish_reason so a
+            # genuine MAX_TOKENS (model-default) case stays visible.
         )
     return _RENDER_MODEL
 
@@ -153,6 +154,30 @@ class _LazyRenderModel:
         return getattr(_render_model(), name)
 
 
+# ── Layout order + colorfulness directive ─────────────────────────────────
+# Shapes how the composer arranges and colors the surface. Plain string
+# (appended to the composer prompt, before the simulation directive).
+LAYOUT_COLOR_DIRECTIVE = """
+
+## Layout order & color (Pixel Campus arcade — NOT a slide deck)
+
+ORDER the surface like a game level:
+- Open with a Heading + a short punchy Callout (the hook / "what you'll learn").
+- Then the interactive tools: flashcards, the QuizGame, and the sim.
+- Put the ConceptMap (the learning path / how-it-connects graph) LAST, at the
+  very BOTTOM of the surface — it is the end-of-level recap, NEVER the intro.
+
+BE COLORFUL — avoid an all-cream surface:
+- Tag concepts with vivid **Badge**s (positive=green, info=gold, warning=coral,
+  danger=red) used like arcade stickers ("CORE", "LVL 1", "EXAM", "KEY").
+- Alternate **Card** tones (lilac=gold, mint=green, warning=coral) across
+  sections so adjacent cards differ in color.
+- Use **Callout** tones (positive / info / warning) for takeaways, not plain
+  text; give every **Section** a short ALL-CAPS eyebrow.
+- When the lecture has numbers, lead with a colorful StatCard row.
+"""
+
+
 # ── Pixel Campus simulation directive ─────────────────────────────────────
 # Every generated learning surface must include ONE interactive simulation,
 # specific to the uploaded lecture, authored as a self-contained FreeformUI
@@ -163,10 +188,10 @@ PIXEL_SIM_DIRECTIVE = """
 
 ## MANDATORY — a lecture-specific interactive simulation (EVERY surface)
 
-Every surface you build MUST contain exactly ONE `FreeformUI` node that is an
-interactive *simulation* of a concept FROM THIS LECTURE — a playable model with
-sliders the learner drags to see cause and effect. It must be specific to the
-lecture's real subject, never a generic placeholder. Pick the model that fits:
+Every surface you build MUST contain exactly ONE `FreeformUI` simulation node:
+an interactive *simulation* of a concept FROM THIS LECTURE — a playable model
+with sliders the learner drags to see cause and effect. It must be specific to
+the lecture's real subject, never a generic placeholder. Pick a model that fits:
 - physics -> projectile / pendulum / inclined plane / wave / orbit
 - chemistry -> titration curve / reaction equilibrium / gas laws
 - biology -> population growth / predator-prey / enzyme kinetics
@@ -177,8 +202,9 @@ If nothing fits, model the lecture's core cause-effect relationship anyway
 (e.g. a timeline scrubber or a single-variable what-if).
 
 Author it as a SELF-CONTAINED FreeformUI node. Rules:
-- Node shape: {"id":"sim","component":"FreeformUI","title":"<short lab name>",
-  "height":460,"html":"<one self-contained HTML document>"}.
+- Node shape: {"id":"sim","component":"FreeformUI","title":"<lab name>",
+  "height":520,"html":"<self-contained HTML doc>"}. Give it room (height 520,
+  canvas ~260 tall).
 - The html is ONE document: inline <style> + markup + inline <script>. NO
   external URLs, fonts, images, or network calls (the sandbox blocks them).
 - Pixel Campus look: define this palette as CSS vars at the top and use it —
@@ -189,38 +215,54 @@ Author it as a SELF-CONTAINED FreeformUI node. Rules:
   (box-shadow:5px 5px 0 var(--outline)); accent-color:var(--accent) on ranges.
 - Structure: a <canvas> stage (dark bg) that DRAWS the model, 2-3
   <input type=range> sliders bound to the lecture's real variables (label each
-  with its name + a live value), a "▶ RUN" button, and a one-line readout that
-  updates. Redraw on slider 'input' and on RUN. Guard against NaN so a value
-  never blanks the canvas.
+  with its name + a LIVE value), and a one-line readout. Sliders redraw the
+  canvas AND update the readout LIVE on 'input' — that IS the interaction.
+- BUTTONS — important: do NOT add a "RUN" button to a continuously-updating
+  sim. If dragging the sliders already shows the effect, a RUN button does
+  nothing and confuses the user — leave it out. Add an action button (▶ FIRE /
+  ▶ RUN TRIAL / ▶ STEP / ▶ DROP) ONLY when the model has a DISCRETE event with
+  a clear before->after. When you do, the outcome MUST be unmistakable: animate
+  the change (requestAnimationFrame) AND flip a COLORED result banner — e.g.
+  set a div's background green with "✓ HIT / CORRECT" or red with "✗ MISS" so
+  the user plainly sees what happened. Never ship a button whose click produces
+  no visible change.
 - Keep the JS small and dependency-free (a draw() that reads slider values and
   paints rects/arcs). Place the simulation prominently, after a short heading.
+- Guard against NaN so a value never blanks the canvas.
 
-KEEP THE SIM COMPACT — the whole html must be UNDER ~45 lines / ~2KB. A long
-sim blows the response budget and the surface fails to render. One canvas, 2
-sliders, one RUN button, one readout. Minimal CSS. No comments in the html.
+KEEP THE SIM TINY — the html MUST be UNDER ~28 lines / ~1.3KB. It is generated
+one character at a time, so a long sim is the main thing that makes the wait
+long. One canvas, 2 sliders, one LIVE readout (add an action button ONLY if it
+triggers a discrete outcome — see the BUTTONS rule). Minimal CSS, no comments.
 
-Skeleton to ADAPT (swap the variables, labels, and the draw()/RUN math to THIS
-lecture — keep it this small):
+Skeleton to ADAPT for EACH sim (swap the variables, labels, and the draw()/RUN
+math to THIS lecture — keep it this small, give the canvas room):
 
 <!doctype html><meta charset=utf-8><style>
 body{font-family:ui-monospace,monospace;background:#F4E4C1;color:#1B2A4A;margin:0;padding:8px}
-canvas{display:block;width:100%;height:200px;background:#0E1626;image-rendering:pixelated;border:4px solid #0E1626}
+canvas{display:block;width:100%;height:260px;background:#0E1626;image-rendering:pixelated;border:4px solid #0E1626}
 .r{display:grid;grid-template-columns:90px 1fr 48px;gap:8px;align-items:center;padding:6px 0}
 b{font-size:12px;text-transform:uppercase}.v{text-align:right;color:#F0596A;font-weight:700}
 input{width:100%;accent-color:#FFC94D}
 button{font-family:inherit;border:4px solid #0E1626;box-shadow:4px 4px 0 #0E1626;background:#F0596A;color:#fff;padding:8px 12px;margin-top:6px;cursor:pointer}
 </style>
-<canvas id=c width=600 height=200></canvas>
+<canvas id=c width=600 height=260></canvas>
 <div class=r><b>Speed</b><input id=s1 type=range min=10 max=90 value=45><span class=v id=v1>45</span></div>
 <div class=r><b>Gravity</b><input id=s2 type=range min=2 max=20 value=10><span class=v id=v2>10</span></div>
-<button id=run>▶ RUN</button><div id=out>Drag a slider, then RUN.</div>
+<div id=out>Range: 0</div>
 <script>
-var x=c.getContext('2d');function d(){x.fillStyle='#0E1626';x.fillRect(0,0,600,200);
-var a=(+s1.value||0)*Math.PI/180,g=(+s2.value||1),vx=Math.cos(a)*8,vy=Math.sin(a)*8,t;
-x.fillStyle='#FFC94D';for(t=0;t<60;t+=0.5){var X=10+vx*t,Y=190-(vy*t-0.5*g*0.1*t*t);if(Y>190)break;x.fillRect(X,Y,4,4)}
-v1.textContent=s1.value;v2.textContent=s2.value}
-s1.oninput=d;s2.oninput=d;run.onclick=function(){d();out.textContent='Range set'};d();
+var x=c.getContext('2d');function d(){x.fillStyle='#0E1626';x.fillRect(0,0,600,260);
+var a=(+s1.value||0)*Math.PI/180,g=(+s2.value||1),vx=Math.cos(a)*8,vy=Math.sin(a)*8,t,X,Y,last=10;
+x.fillStyle='#FFC94D';for(t=0;t<70;t+=0.5){X=10+vx*t;Y=250-(vy*t-0.5*g*0.1*t*t);if(Y>250)break;x.fillRect(X,Y,4,4);last=X}
+v1.textContent=s1.value;v2.textContent=s2.value;out.textContent='Range: '+Math.round(last-10)}
+s1.oninput=d;s2.oninput=d;d();
 </script>
+
+This skeleton is LIVE (no button): dragging a slider redraws the arc and
+updates "Range" instantly. Only if the sim needs a discrete action instead,
+add `<button id=run>▶ FIRE</button>` + `<div id=verdict></div>`, and on click
+animate (requestAnimationFrame) then set verdict.style.background to '#5FBF6A'
+with "✓ HIT" or '#F0596A' with "✗ MISS" — the result MUST visibly change.
 
 Keep the other study tools too (flashcards, quiz) — the sim is ADDITIONAL.
 Output STRICT JSON: the html is the value of the FreeformUI node's "html" key,
@@ -228,15 +270,102 @@ inner double-quotes escaped so components_json stays valid JSON.
 """
 
 
+# ── Mini-game directive (StudyBuddy "Yes") ────────────────────────────────
+# Highest-priority MODE OVERRIDE: when the learner asks to play a mini-game,
+# the composer drops the study workspace and builds a single self-contained
+# 5-level pixel game about the lecture. Plain string (braces/quotes literal).
+PIXEL_MINIGAME_DIRECTIVE = """
+
+## MODE OVERRIDE — MINI-GAME (highest priority, overrides everything above)
+
+IF the most recent user message asks to PLAY a mini-game (mentions "mini-game",
+"play", or "5-level"), IGNORE all rules above — NO flashcards, NO quiz, NO two
+sims, NO concept map. Build ONLY a game:
+
+Emit a root Stack with ONE FreeformUI node whose html is a self-contained
+5-LEVEL pixel game ABOUT THIS LECTURE:
+- 5 levels, each HARDER than the last; each TEACHES something NEW about the
+  subject (a one-sentence fact/insight) BEFORE its challenge, so the game is
+  genuinely useful — not just trivia.
+- Very gamified, Pixel Campus style: 3 lives (hearts), a SCORE, a "LEVEL x/5"
+  meter. Right answer -> points + advance + green "NICE!"; wrong -> lose a life
+  + red mark + reveal the correct answer. 0 lives -> GAME OVER (retry). Clear
+  level 5 -> victory screen ("MASTERED! +XP").
+- DATA-DRIVEN and COMPACT (keep the whole html under ~2.5KB so it generates
+  fast): one LEVELS array of 5 objects (3 options each, a ONE-line teach) + a
+  small engine that renders the current level. Do NOT hand-code 5 separate
+  screens.
+- Self-contained: inline <style> + <script>, NO external URLs/fonts/images.
+  Palette --primary:#F4E4C1; --ink:#1B2A4A; --outline:#0E1626;
+  --tertiary:#F0596A; --accent:#FFC94D; --success:#5FBF6A. font ui-monospace;
+  html{image-rendering:pixelated}; square corners; 4px var(--outline) borders;
+  hard offset shadows.
+
+Compact engine to ADAPT (swap LEVELS content to the lecture; keep it this small):
+
+<!doctype html><meta charset=utf-8><style>
+body{font-family:ui-monospace,monospace;background:#1C5FB0;color:#1B2A4A;margin:0;padding:12px}
+.hud{display:flex;justify-content:space-between;color:#F4E4C1;font-weight:700;margin-bottom:8px}
+.card{background:#F4E4C1;border:4px solid #0E1626;box-shadow:6px 6px 0 #0E1626;padding:14px}
+.teach{background:#FFC94D;border:3px solid #0E1626;padding:8px;margin-bottom:10px}
+button{display:block;width:100%;text-align:left;font-family:inherit;border:4px solid #0E1626;box-shadow:4px 4px 0 #0E1626;background:#fff;margin:6px 0;padding:10px;cursor:pointer}
+#msg{font-weight:700;margin-top:8px}
+</style>
+<div class=hud><span id=lvl>LEVEL 1/5</span><span id=lives>HP 3</span><span id=score>0 XP</span></div>
+<div class=card><div class=teach id=teach></div><div id=q></div><div id=opts></div><div id=msg></div></div>
+<script>
+var L=[
+ {teach:"NEW FACT 1",q:"Q1?",o:["A","B","C"],c:0},
+ {teach:"NEW FACT 2",q:"Q2?",o:["A","B","C"],c:1},
+ {teach:"NEW FACT 3",q:"Q3?",o:["A","B","C"],c:2},
+ {teach:"NEW FACT 4",q:"Q4?",o:["A","B","C"],c:0},
+ {teach:"BOSS FACT 5",q:"Q5?",o:["A","B","C"],c:1}
+];
+var i=0,hp=3,score=0;
+function render(){var l=L[i];lvl.textContent='LEVEL '+(i+1)+'/5';lives.textContent='HP '+hp;score.textContent=score+' XP';
+ teach.textContent='NEW: '+l.teach;q.textContent=l.q;msg.textContent='';opts.innerHTML='';
+ l.o.forEach(function(t,k){var b=document.createElement('button');b.textContent=t;b.onclick=function(){pick(k)};opts.appendChild(b);});}
+function pick(k){var l=L[i];if(k===l.c){score+=20*(i+1);msg.style.color='#1a7a32';msg.textContent='NICE! +'+(20*(i+1));i++;if(i>=L.length){win();return;}setTimeout(render,700);}
+ else{hp--;msg.style.color='#c0303c';msg.textContent='Correct: '+l.o[l.c];if(hp<=0){over();return;}setTimeout(render,900);}}
+function win(){document.querySelector('.card').innerHTML='<h2>MASTERED!</h2><p>Score '+score+' XP — all 5 levels cleared.</p>';}
+function over(){document.querySelector('.card').innerHTML='<h2>GAME OVER</h2><p>Score '+score+'. <button onclick="location.reload()">RETRY</button></p>';}
+render();
+</script>
+
+Put NOTHING else on the surface — the game IS the answer.
+"""
+
+
+def _fallback_surface(title: str, body: str) -> str:
+    """A minimal valid surface so the client ALWAYS gets a surfaceId and never
+    hangs on 'Building your level'. Used when the composer returns no usable
+    tool call (e.g. truncation) or the model errors."""
+    return a2ui.render(
+        operations=[
+            a2ui.create_surface("dynamic-surface", catalog_id=CATALOG_ID),
+            a2ui.update_components(
+                "dynamic-surface",
+                [
+                    {"id": "root", "component": "Stack", "gap": "md",
+                     "children": ["fb-h", "fb-c"]},
+                    {"id": "fb-h", "component": "Heading", "level": "2", "text": title},
+                    {"id": "fb-c", "component": "Callout", "tone": "warning",
+                     "title": "Try again", "body": body},
+                ],
+            ),
+        ]
+    )
+
+
 @tool()
 def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     """Render the answer to the user's question as an A2UI surface.
 
-    Call this AFTER `query_pdf`. It reads the conversation (including the
-    query_pdf result) and the available A2UI catalog from context, then
-    designs the surface and returns the operations for the client to
-    render. You do NOT pass any arguments. It picks up everything from
-    state.
+    It reads the conversation directly — the most recent `[Document: ...]`
+    lecture and the user's request — plus the available A2UI catalog from
+    context, then designs the surface and returns the operations for the
+    client to render IN ONE PASS (no separate extraction step). You do NOT
+    pass any arguments. It picks up everything from state.
     """
     messages = runtime.state["messages"][:-1]
     context_entries = runtime.state.get("copilotkit", {}).get("context", [])
@@ -255,13 +384,30 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
         f"{CATALOG_PROMPT}\n"
     )
 
+    # Detect intent so we attach ONLY the directive that's needed — a smaller
+    # prompt is faster to process and keeps the model focused. Mini-game turns
+    # get the game directive; every other turn gets the workspace + sim one.
+    last_user = ""
+    for _m in reversed(messages):
+        if getattr(_m, "type", "") in ("human", "user") or getattr(_m, "role", "") == "user":
+            _c = getattr(_m, "content", "")
+            last_user = _c if isinstance(_c, str) else str(_c)
+            break
+    is_minigame = any(
+        k in last_user.lower() for k in ("mini-game", "minigame", "5-level", "play a mini")
+    )
+
     prompt = (
         f"{context_text}\n{custom_catalog_note}\n"
         "Design the surface using ONLY components from the catalog above. "
+        "The most recent `[Document: ...]` message in the conversation is the "
+        "lecture — READ IT DIRECTLY and base the surface on its actual content "
+        "(there is no pre-extracted summary; you do the reading here). "
         "Inline all data (use plain values, not {{path}} bindings, unless a "
         "property explicitly accepts a path). The user's request is in the "
         "most recent messages. Honor the words they used (chart type, "
-        "comparison, etc.).\n\n"
+        "comparison, etc.). Keep it FOCUSED and small — fewer, well-chosen "
+        "components render far faster than a kitchen sink.\n\n"
         "Call render_a2ui exactly once. Pass the COMPLETE component tree as "
         "a JSON array STRING in `components_json` — every node is an object "
         "carrying its real catalog props inline (id, component, plus "
@@ -272,39 +418,56 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
         "(a JSON object string) if you bind a property via {path}; otherwise "
         "pass \"{}\". Emit STRICT JSON in both string params (double-quoted "
         "keys, no trailing commas, no comments)."
-    ) + PIXEL_SIM_DIRECTIVE
+    ) + (PIXEL_MINIGAME_DIRECTIVE if is_minigame else LAYOUT_COLOR_DIRECTIVE + PIXEL_SIM_DIRECTIVE)
 
     model_with_tool = _render_model().bind_tools(
         [render_a2ui], tool_choice="render_a2ui"
     )
-    response = model_with_tool.invoke(
-        [SystemMessage(content=prompt), *messages]
+
+    print(
+        f"[generate_a2ui] composing | minigame={is_minigame} "
+        f"msgs={len(messages)} prompt_chars={len(prompt)} "
+        f"last_user={last_user[:90]!r}",
+        flush=True,
+    )
+
+    try:
+        response = model_with_tool.invoke([SystemMessage(content=prompt), *messages])
+    except Exception as exc:  # noqa: BLE001 — surface as data, never crash the stream
+        print(f"[generate_a2ui] MODEL ERROR: {type(exc).__name__}: {exc}", flush=True)
+        return _fallback_surface(
+            "Generation failed",
+            f"The model call errored ({type(exc).__name__}). Tap ↑ NEW LECTURE "
+            "to retry. (Check the [agent] logs for the full error.)",
+        )
+
+    # Why a tool call did/didn't come back. finish_reason='MAX_TOKENS' means the
+    # output cap truncated it before the forced render_a2ui call completed.
+    meta = getattr(response, "response_metadata", None) or {}
+    finish = meta.get("finish_reason") or meta.get("stop_reason") or "?"
+    n_calls = len(response.tool_calls or [])
+    print(
+        f"[generate_a2ui] response | tool_calls={n_calls} finish_reason={finish!r}",
+        flush=True,
     )
 
     if not response.tool_calls:
-        # The composer didn't return a usable tool call (e.g. the response was
-        # truncated before the forced render_a2ui call completed). Emit a real
-        # surface anyway so the client always gets a surfaceId and never hangs
-        # on "Building your level…" — a calm retry card beats an infinite
-        # spinner.
-        fallback = [
-            a2ui.create_surface("dynamic-surface", catalog_id=CATALOG_ID),
-            a2ui.update_components(
-                "dynamic-surface",
-                [
-                    {"id": "root", "component": "Stack", "gap": "md",
-                     "children": ["fb-h", "fb-c"]},
-                    {"id": "fb-h", "component": "Heading", "level": "2",
-                     "text": "Couldn't build the level"},
-                    {"id": "fb-c", "component": "Callout", "tone": "warning",
-                     "title": "Try again",
-                     "body": "The generator ran out of room composing this "
-                             "surface. Tap ↑ NEW LECTURE (or re-send) to retry "
-                             "— a shorter prompt or fewer slides usually works."},
-                ],
-            ),
-        ]
-        return a2ui.render(operations=fallback)
+        # No usable tool call (most often: truncated at the output cap, so the
+        # forced render_a2ui args never finished). Emit a real surface anyway so
+        # the client always gets a surfaceId and never hangs — a calm retry card
+        # beats an infinite spinner. Log WHY so it's diagnosable.
+        content_preview = str(getattr(response, "content", ""))[:300]
+        print(
+            f"[generate_a2ui] NO TOOL CALL -> fallback | finish_reason={finish!r} "
+            f"content[:300]={content_preview!r}",
+            flush=True,
+        )
+        return _fallback_surface(
+            "Couldn't build the level",
+            "The generator ran out of room composing this surface. Tap ↑ NEW "
+            "LECTURE (or re-send) to retry — a shorter prompt or fewer slides "
+            "usually works.",
+        )
 
     args = response.tool_calls[0]["args"]
     surface_id = args.get("surfaceId", "dynamic-surface")
@@ -317,16 +480,31 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     # crashing the agent loop.
     components_json = args.get("components_json", "[]")
     data_json = args.get("data_json", "{}")
+    print(
+        f"[generate_a2ui] tool args | components_json_chars={len(components_json or '')} "
+        f"data_json_chars={len(data_json or '')}",
+        flush=True,
+    )
     try:
         components = json.loads(components_json) if components_json else []
     except (json.JSONDecodeError, TypeError) as exc:
-        print(f"[dynamic_agent] failed to parse components_json: {exc}")
+        print(
+            f"[generate_a2ui] PARSE FAIL components_json ({len(components_json or '')} chars): "
+            f"{exc} | tail={str(components_json)[-120:]!r}",
+            flush=True,
+        )
         components = []
     try:
         data = json.loads(data_json) if data_json else {}
     except (json.JSONDecodeError, TypeError) as exc:
-        print(f"[dynamic_agent] failed to parse data_json: {exc}")
+        print(f"[generate_a2ui] PARSE FAIL data_json: {exc}", flush=True)
         data = {}
+
+    print(
+        f"[generate_a2ui] OK | {len(components)} components surface={surface_id!r} "
+        f"finish_reason={finish!r}",
+        flush=True,
+    )
 
     ops = [
         a2ui.create_surface(surface_id, catalog_id=catalog_id),
@@ -363,51 +541,48 @@ Only if NO message in the history has ever contained a
 
 ## Your tools
 
-- `query_pdf(pdf_text, question)` — turns the lecture into structured study
-  material (flashcards, quiz, explainer, chart). Grounds the answer in the
-  uploaded course.
 - `web_research(query)` — searches the LIVE web. Use it ONLY when the learner
   wants to go BEYOND the course: the latest developments, real-world examples,
   current numbers / rates / prices, recent news, "what's happening now with
   X". Returns JSON {{query, answer, sources:[{{title,url,snippet,favicon}}]}}.
-- `generate_a2ui()` — renders the answer as an A2UI surface. It is ALWAYS the
-  LAST tool call of the turn. No arguments; it reads everything from state,
-  including any query_pdf and web_research results.
+- `generate_a2ui()` — reads the lecture text + the conversation and renders the
+  answer as an A2UI surface in ONE pass (it does its own reading; there is NO
+  separate extraction step). It is ALWAYS the LAST tool call of the turn. No
+  arguments; it reads everything from state.
 
 ## How a turn MUST go (do not deviate)
 
-First decide which flow the learner's message wants, then ALWAYS finish with
-exactly one `generate_a2ui()` call.
+Pick the flow, then ALWAYS finish with exactly one `generate_a2ui()` call.
+`generate_a2ui` reads the most recent `[Document: ...]` lecture from the
+conversation itself, so the common case is a SINGLE tool call — no extraction
+round-trip.
 
-1. STUDY FLOW — the default. "Explain X", "make flashcards", "quiz me",
-   "summarize chapter 3": the answer lives in the lecture.
-   a. If NO message in the conversation history has a `[Document: ...]`
-      header, reply with a single sentence: "Attach a PDF and I'll render
-      the answer." STOP. Do not call any tool.
-   b. Otherwise: ONE call to `query_pdf(pdf_text=<the document text from the
-      most recent [Document: ...] message>, question=<the user's question on
-      THIS turn>)`. Read the JSON silently. DO NOT type it anywhere.
-   c. ONE call to `generate_a2ui()`. STOP.
+1. STUDY FLOW — the default ("explain X", "make flashcards", "quiz me",
+   "summarize chapter 3"): the answer lives in the lecture.
+   a. If NO message in history has a `[Document: ...]` header, reply with one
+      sentence: "Attach a PDF and I'll render the answer." STOP. No tool.
+   b. Otherwise: make exactly ONE call to `generate_a2ui()`. STOP.
 
 2. GO-DEEPER / WEB FLOW — the learner asks for the latest / real-world /
-   current / live / "in practice today" / recent-news angle.
+   current / live / recent-news angle.
    a. ONE or TWO calls to `web_research(query=...)`, each a specific,
-      self-contained query. If a lecture is attached AND grounding the
-      real-world answer in it helps, you MAY also call `query_pdf` once first.
+      self-contained query.
    b. ONE call to `generate_a2ui()`. STOP.
 
-3. After `generate_a2ui()` returns you are DONE. Do not call any more tools.
-   Do not write any chat content. Your final assistant message MUST be an
-   empty string. The rendered surface IS the user-visible answer.
+3. MINI-GAME FLOW — the learner asks to PLAY a mini-game (mentions "mini-game",
+   "play", or "5-level"). Make exactly ONE call to `generate_a2ui()` (it builds
+   the game straight from the lecture in history). STOP.
+
+After `generate_a2ui()` returns you are DONE. Do not call any more tools.
+Do not write any chat content. Your final assistant message MUST be an
+empty string. The rendered surface IS the user-visible answer.
 
 ## Absolute hard rules. Breaking ANY of these causes a crash.
 
 - After `generate_a2ui` returns, you are DONE for this turn. Do not call
-  `query_pdf`, `web_research`, or `generate_a2ui` again. Do not write
-  anything except an empty string.
-- NEVER include the query_pdf JSON, the web_research JSON, or the raw answer
-  in your reply.
-- NEVER include any tool's return value in your reply.
+  `web_research` or `generate_a2ui` again. Do not write anything except an
+  empty string.
+- NEVER include the web_research JSON or any tool's return value in your reply.
 - NEVER quote the PDF text, summarize the document, or echo any part of
   `pdf_text` back into the chat.
 - The chat reply MUST be either empty ("") or a single very short
@@ -487,9 +662,9 @@ explicitly asks for data viz.
 ## Restating the loop guard
 
 - `generate_a2ui` is ALWAYS the final tool call, exactly once.
-- Before it: EITHER `query_pdf` once (study flow) OR `web_research` one-to-two
-  times (go-deeper flow) — or `web_research` then `query_pdf` when the learner
-  wants the lecture grounded AND the live real-world layer.
+- Before it: NOTHING for the study / mini-game flow (generate_a2ui reads the
+  lecture itself — a single call), OR `web_research` one-to-two times first for
+  the go-deeper flow.
 - After generate_a2ui returns, STOP IMMEDIATELY.
 - Never describe the surface in prose. The surface IS the answer.
 
@@ -504,7 +679,7 @@ def build_dynamic_agent():
     # then). Online behavior is unchanged.
     return create_agent(
         model=_LazyRenderModel(),
-        tools=[query_pdf, web_research, generate_a2ui],
+        tools=[web_research, generate_a2ui],
         middleware=[CopilotKitMiddleware()],
         system_prompt=SYSTEM_PROMPT,
         checkpointer=MemorySaver(),
