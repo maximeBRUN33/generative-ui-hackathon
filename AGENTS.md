@@ -36,6 +36,11 @@ Read `HACKATHON.md` for the customization recipes.
 > (`agent/src/query.py`, `risk_register`, `domains/`) only exist under
 > `other-examples/portkit/`.
 
+> **Read `docs/MASTERPLAN.md` first.** It is the product/scope source of truth
+> for the current build (the generative-learning-environment direction on the
+> `copilearn` branch) and defines what is in and out of scope. `DESIGN.md` is
+> the visual source of truth. See Hard rules 7 and 8.
+
 ## Hard rules
 
 1. **Versions are pinned.** Do NOT bump `@copilotkit/*`, `langchain*`, or
@@ -67,6 +72,13 @@ Read `HACKATHON.md` for the customization recipes.
    agent-generated / `FreeformUI` surface. When a value in code disagrees with
    `DESIGN.md`, `DESIGN.md` wins — change the code, not the doc. Read it before
    touching anything visual.
+8. **`docs/MASTERPLAN.md` is the product/scope source of truth.** It defines
+   what we are building (generalize the existing `/dynamic` engine + one real
+   3D `Scene3D` component), the lane split (agent vs UI), and — critically —
+   what is **explicitly out of scope** (no second/frontend orchestrator agent,
+   no adopting the full proposed UI stack; React Three Fiber is the only new
+   dep). Before starting feature work, read it and stay inside its scope. If a
+   request conflicts with the masterplan, surface the conflict before building.
 
 ## Customization seams
 
