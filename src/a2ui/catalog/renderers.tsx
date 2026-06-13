@@ -1,7 +1,14 @@
 "use client";
 
 import { clsx } from "clsx";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Bar,
   BarChart as RBarChart,
@@ -1662,6 +1669,448 @@ const FreeformUI = ({
   );
 };
 
+// ── GraphExplorer (math signature widget) ──────────────────────────────────
+// A safe math-expression evaluator. We compile "an expression in x + named
+// params" into a closure WITHOUT eval/Function — the agent supplies the
+// expression, so we parse a fixed grammar (recursive descent) instead of
+// trusting it as code. Supports + - * / ^, unary -, parens, the funcs below,
+// constants pi/e, the variable x, and any named parameter.
+type EvalScope = Record<string, number>;
+const MATH_FUNCS: Record<string, (a: number) => number> = {
+  sin: Math.sin,
+  cos: Math.cos,
+  tan: Math.tan,
+  exp: Math.exp,
+  ln: Math.log,
+  log: (x) => Math.log10(x),
+  sqrt: Math.sqrt,
+  abs: Math.abs,
+};
+const MATH_CONSTS: Record<string, number> = { pi: Math.PI, e: Math.E };
+
+function tokenizeExpr(s: string): string[] {
+  const out: string[] = [];
+  let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (/\s/.test(c)) {
+      i++;
+    } else if (/[0-9.]/.test(c)) {
+      let j = i + 1;
+      while (j < s.length && /[0-9.]/.test(s[j])) j++;
+      out.push(s.slice(i, j));
+      i = j;
+    } else if (/[a-zA-Z_]/.test(c)) {
+      let j = i + 1;
+      while (j < s.length && /[a-zA-Z0-9_]/.test(s[j])) j++;
+      out.push(s.slice(i, j));
+      i = j;
+    } else if ("+-*/^(),".includes(c)) {
+      out.push(c);
+      i++;
+    } else {
+      i++; // skip anything unexpected
+    }
+  }
+  return out;
+}
+
+type CompiledExpr = (scope: EvalScope) => number;
+
+function compileExpr(src: string): CompiledExpr {
+  const t = tokenizeExpr(src);
+  let p = 0;
+  const peek = () => t[p];
+  const next = () => t[p++];
+
+  function parseExpr(): CompiledExpr {
+    let left = parseTerm();
+    while (peek() === "+" || peek() === "-") {
+      const op = next();
+      const right = parseTerm();
+      const l = left;
+      left = op === "+" ? (s) => l(s) + right(s) : (s) => l(s) - right(s);
+    }
+    return left;
+  }
+  function parseTerm(): CompiledExpr {
+    let left = parsePower();
+    while (peek() === "*" || peek() === "/") {
+      const op = next();
+      const right = parsePower();
+      const l = left;
+      left = op === "*" ? (s) => l(s) * right(s) : (s) => l(s) / right(s);
+    }
+    return left;
+  }
+  function parsePower(): CompiledExpr {
+    const base = parseUnary();
+    if (peek() === "^") {
+      next();
+      const exp = parsePower(); // right-associative
+      return (s) => Math.pow(base(s), exp(s));
+    }
+    return base;
+  }
+  function parseUnary(): CompiledExpr {
+    if (peek() === "-") {
+      next();
+      const u = parseUnary();
+      return (s) => -u(s);
+    }
+    if (peek() === "+") {
+      next();
+      return parseUnary();
+    }
+    return parseAtom();
+  }
+  function parseAtom(): CompiledExpr {
+    const tok = next();
+    if (tok === undefined) return () => NaN;
+    if (tok === "(") {
+      const e = parseExpr();
+      if (peek() === ")") next();
+      return e;
+    }
+    if (/^[0-9.]/.test(tok)) {
+      const v = parseFloat(tok);
+      return () => v;
+    }
+    if (peek() === "(") {
+      next();
+      const arg = parseExpr();
+      if (peek() === ")") next();
+      const fn = MATH_FUNCS[tok];
+      return fn ? (s) => fn(arg(s)) : () => NaN;
+    }
+    if (tok in MATH_CONSTS) {
+      const v = MATH_CONSTS[tok];
+      return () => v;
+    }
+    return (s) => (tok in s ? s[tok] : NaN);
+  }
+
+  try {
+    return parseExpr();
+  } catch {
+    return () => NaN;
+  }
+}
+
+type GraphParam = {
+  name: string;
+  min: number;
+  max: number;
+  value: number;
+  step?: number;
+};
+
+const GraphExplorer = ({
+  props,
+}: RendererProps<{
+  title?: string;
+  expression: string;
+  params?: GraphParam[];
+  xRange?: number[];
+  yRange?: number[];
+  xLabel?: string;
+  yLabel?: string;
+}>) => {
+  const expr = props.expression || "x";
+  const compiled = useMemo(() => compileExpr(expr), [expr]);
+  const paramDefs = Array.isArray(props.params) ? props.params : [];
+  const [vals, setVals] = useState<EvalScope>(() =>
+    Object.fromEntries(paramDefs.map((p) => [p.name, p.value])),
+  );
+
+  const [xmin, xmax] =
+    Array.isArray(props.xRange) && props.xRange.length === 2
+      ? props.xRange
+      : [-5, 5];
+
+  // Sample the curve. Keep finite points; split into segments on gaps.
+  const W = 640;
+  const H = 300;
+  const PAD = 34;
+  const N = 200;
+  const pts: Array<{ x: number; y: number } | null> = [];
+  for (let i = 0; i <= N; i++) {
+    const x = xmin + ((xmax - xmin) * i) / N;
+    const y = compiled({ x, ...vals });
+    pts.push(Number.isFinite(y) ? { x, y } : null);
+  }
+  const finite = pts.filter(Boolean) as Array<{ x: number; y: number }>;
+  let [ymin, ymax] =
+    Array.isArray(props.yRange) && props.yRange.length === 2
+      ? props.yRange
+      : (() => {
+          if (!finite.length) return [-1, 1];
+          let lo = Infinity,
+            hi = -Infinity;
+          for (const pt of finite) {
+            if (pt.y < lo) lo = pt.y;
+            if (pt.y > hi) hi = pt.y;
+          }
+          if (lo === hi) {
+            lo -= 1;
+            hi += 1;
+          }
+          const pad = (hi - lo) * 0.1;
+          return [lo - pad, hi + pad];
+        })();
+  if (!(ymax > ymin)) {
+    ymin = -1;
+    ymax = 1;
+  }
+
+  const sx = (x: number) => PAD + ((x - xmin) / (xmax - xmin)) * (W - 2 * PAD);
+  const sy = (y: number) => H - PAD - ((y - ymin) / (ymax - ymin)) * (H - 2 * PAD);
+
+  // Build path with breaks on non-finite samples.
+  let d = "";
+  let penDown = false;
+  for (const pt of pts) {
+    if (!pt) {
+      penDown = false;
+      continue;
+    }
+    const X = sx(pt.x).toFixed(1);
+    const Y = sy(pt.y).toFixed(1);
+    d += `${penDown ? "L" : "M"}${X} ${Y} `;
+    penDown = true;
+  }
+
+  const showXAxis = ymin <= 0 && ymax >= 0;
+  const showYAxis = xmin <= 0 && xmax >= 0;
+
+  return (
+    <div className="rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-5">
+      <div className="flex items-center justify-between">
+        <span className="text-[14px] font-semibold text-[var(--ink)]">
+          {props.title || "Graph explorer"}
+        </span>
+        <span className="mono text-[12px] text-[var(--ink-2)]">
+          y = {expr}
+        </span>
+      </div>
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        width="100%"
+        className="mt-3"
+        role="img"
+        aria-label={`Graph of y = ${expr}`}
+      >
+        <rect
+          x={PAD}
+          y={PAD - 14}
+          width={W - 2 * PAD}
+          height={H - 2 * PAD + 20}
+          fill="var(--surface-soft)"
+          rx="8"
+        />
+        {showXAxis && (
+          <line
+            x1={PAD}
+            y1={sy(0)}
+            x2={W - PAD}
+            y2={sy(0)}
+            stroke="var(--line)"
+            strokeWidth="1.5"
+          />
+        )}
+        {showYAxis && (
+          <line
+            x1={sx(0)}
+            y1={PAD - 14}
+            x2={sx(0)}
+            y2={H - PAD + 6}
+            stroke="var(--line)"
+            strokeWidth="1.5"
+          />
+        )}
+        <path d={d} fill="none" stroke="var(--ink)" strokeWidth="2.5" />
+        <text
+          x={W - PAD}
+          y={H - PAD + 18}
+          textAnchor="end"
+          className="mono"
+          fontSize="11"
+          fill="var(--ink-2)"
+        >
+          {props.xLabel || "x"}
+        </text>
+      </svg>
+
+      {paramDefs.length > 0 && (
+        <div className="mt-3 flex flex-col gap-2.5">
+          {paramDefs.map((p) => (
+            <div key={p.name} className="flex items-center gap-3">
+              <span className="mono text-[12px] w-6 text-[var(--ink)]">
+                {p.name}
+              </span>
+              <input
+                type="range"
+                min={p.min}
+                max={p.max}
+                step={p.step ?? (p.max - p.min) / 100}
+                value={vals[p.name] ?? p.value}
+                onChange={(e) =>
+                  setVals((v) => ({ ...v, [p.name]: Number(e.target.value) }))
+                }
+                className="flex-1 accent-[var(--ink)]"
+              />
+              <span className="mono text-[12px] w-12 text-right text-[var(--ink-2)]">
+                {(vals[p.name] ?? p.value).toFixed(2)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── ConceptMap (lecture overview) ──────────────────────────────────────────
+type CMNode = { id: string; label: string; level?: number; group?: string };
+type CMEdge = { from: string; to: string; label?: string };
+
+const ConceptMap = ({
+  props,
+  dispatch,
+}: RendererProps<{ title?: string; nodes: CMNode[]; edges: CMEdge[] }>) => {
+  const nodes = Array.isArray(props.nodes) ? props.nodes : [];
+  const edges = Array.isArray(props.edges) ? props.edges : [];
+
+  // Layout: columns by `level` (fall back to declaration order). Within a
+  // column, stack nodes vertically and centre them.
+  const NODE_W = 150;
+  const NODE_H = 46;
+  const COL_GAP = 56;
+  const ROW_GAP = 18;
+  const PAD = 8;
+
+  const byLevel = new Map<number, CMNode[]>();
+  nodes.forEach((n, i) => {
+    const lvl = typeof n.level === "number" ? n.level : i;
+    if (!byLevel.has(lvl)) byLevel.set(lvl, []);
+    byLevel.get(lvl)!.push(n);
+  });
+  const levels = [...byLevel.keys()].sort((a, b) => a - b);
+  const maxRows = Math.max(1, ...[...byLevel.values()].map((v) => v.length));
+  const colW = NODE_W + COL_GAP;
+  const rowH = NODE_H + ROW_GAP;
+  const totalH = maxRows * rowH - ROW_GAP + 2 * PAD;
+  const totalW = levels.length * colW - COL_GAP + 2 * PAD;
+
+  const pos = new Map<string, { x: number; y: number }>();
+  levels.forEach((lvl, li) => {
+    const col = byLevel.get(lvl)!;
+    const colHeight = col.length * rowH - ROW_GAP;
+    const yStart = PAD + (totalH - 2 * PAD - colHeight) / 2;
+    col.forEach((n, ri) => {
+      pos.set(n.id, { x: PAD + li * colW, y: yStart + ri * rowH });
+    });
+  });
+
+  return (
+    <div className="rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-5">
+      {props.title && (
+        <div className="mb-3 text-[14px] font-semibold text-[var(--ink)]">
+          {props.title}
+        </div>
+      )}
+      <svg
+        viewBox={`0 0 ${Math.max(totalW, 1)} ${Math.max(totalH, 1)}`}
+        width="100%"
+        role="img"
+        aria-label="Concept map"
+      >
+        <defs>
+          <marker
+            id="cm-arrow"
+            viewBox="0 0 10 10"
+            refX="8"
+            refY="5"
+            markerWidth="6"
+            markerHeight="6"
+            orient="auto-start-reverse"
+          >
+            <path
+              d="M2 1L8 5L2 9"
+              fill="none"
+              stroke="var(--ink-2)"
+              strokeWidth="1.5"
+            />
+          </marker>
+        </defs>
+        {edges.map((e, i) => {
+          const a = pos.get(e.from);
+          const b = pos.get(e.to);
+          if (!a || !b) return null;
+          const x1 = a.x + NODE_W;
+          const y1 = a.y + NODE_H / 2;
+          const x2 = b.x;
+          const y2 = b.y + NODE_H / 2;
+          const mx = (x1 + x2) / 2;
+          return (
+            <path
+              key={i}
+              d={`M${x1} ${y1} C${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`}
+              fill="none"
+              stroke="var(--ink-2)"
+              strokeWidth="1.3"
+              markerEnd="url(#cm-arrow)"
+              opacity="0.55"
+            />
+          );
+        })}
+        {nodes.map((n) => {
+          const p = pos.get(n.id);
+          if (!p) return null;
+          return (
+            <g
+              key={n.id}
+              transform={`translate(${p.x} ${p.y})`}
+              style={{ cursor: "pointer" }}
+              onClick={() =>
+                dispatch?.({
+                  event: {
+                    name: "focus_topic",
+                    context: { topic: n.label, id: n.id },
+                  },
+                } as never)
+              }
+            >
+              <rect
+                width={NODE_W}
+                height={NODE_H}
+                rx="10"
+                fill="var(--surface-soft)"
+                stroke="var(--line)"
+                strokeWidth="1"
+              />
+              <text
+                x={NODE_W / 2}
+                y={NODE_H / 2}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize="12.5"
+                fill="var(--ink)"
+              >
+                {n.label.length > 20 ? n.label.slice(0, 19) + "…" : n.label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <p className="mt-2 text-[11px] text-[var(--ink-2)]">
+        Tap a concept to focus on it.
+      </p>
+    </div>
+  );
+};
+
 function Slot({ render }: { render: ReactNode }) {
   return <>{render}</>;
 }
@@ -1694,4 +2143,6 @@ export const renderers = {
   RateShockSimulator,
   QuizGame,
   FreeformUI,
+  GraphExplorer,
+  ConceptMap,
 };

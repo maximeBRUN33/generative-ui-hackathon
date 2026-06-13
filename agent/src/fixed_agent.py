@@ -52,16 +52,28 @@ class Progress(TypedDict):
     tone: str
 
 
-class ScopeOption(TypedDict):
-    label: str
-    value: str
-
-
 class QuizItem(TypedDict):
     question: str
     options: list[str]
     correctIndex: int
     explanation: str
+
+
+class GraphParam(TypedDict):
+    name: str
+    min: float
+    max: float
+    value: float
+
+
+class CMNode(TypedDict):
+    id: str
+    label: str
+    level: int
+
+
+# `from` is a Python keyword, so CMEdge must be defined functionally.
+CMEdge = TypedDict("CMEdge", {"from": str, "to": str})
 
 
 @tool
@@ -72,50 +84,53 @@ def render_workspace(
     concepts: list[Concept],
     progress: list[Progress],
     takeaway: str,
-    scope_options: list[ScopeOption],
-    scope_selected: str,
-    bond_face_value: float,
-    bond_coupon_rate: float,
-    bond_maturity_years: float,
-    bond_ytm: float,
-    bond_frequency: int,
+    concept_nodes: list[CMNode],
+    concept_edges: list[CMEdge],
+    graph_title: str,
+    graph_expression: str,
+    graph_params: list[GraphParam],
+    graph_x_min: float,
+    graph_x_max: float,
     quiz: list[QuizItem],
 ) -> str:
-    """Render the interactive study + game workspace for the lecture PDF.
+    """Render the interactive study workspace for the lecture PDF.
 
-    This is Copilearn's learning environment: concept cards, a mastery
-    tracker, an interactive rate-shock simulator, and a scored quiz game.
-    Pass data INLINE. Call ONCE per turn.
+    This is Copilearn's content-adaptive learning environment: a concept map,
+    topic cards, an interactive function grapher, a scored quiz, and a mastery
+    tracker. Pass data INLINE. Call ONCE per turn.
 
     Required shapes:
       - concepts: EXACTLY 6 cards. Each {name, definition, difficulty}.
-          * `name`       = the concept/term, short. <= 5 words.
-          * `definition` = a plain-language, student-friendly explanation in
-                           1–2 sentences. Make it genuinely clear.
-          * `difficulty` = ONE word badge: "Core", "Intermediate", or
-                           "Advanced".
+          * `name`       = the concept/term, short (<= 5 words).
+          * `definition` = a plain-language explanation in 1–2 sentences.
+          * `difficulty` = ONE word: "Core", "Intermediate", or "Advanced".
         If the lecture has fewer than 6 headline concepts, split the richest
         ones so you always return exactly 6.
 
-      - progress: ONE entry PER concept (6), SAME order. {label, value, tone}.
-          * `value` = mastery percent 0–100. On the FIRST render set every
-                      value to 0 (nothing mastered yet).
+      - progress: ONE entry per concept (6), SAME order. {label, value, tone}.
+          * `value` = mastery percent 0–100 (0 on the first render).
           * `tone`  = "default" | "positive" | "warning".
 
       - takeaway: ONE sentence — the single most important idea.
 
-      - scope_options: an "Overview" chip plus one per major concept.
-      - scope_selected: "overview" on first render; else the clicked value.
+      - concept_nodes / concept_edges: the concept map. nodes are
+        {id, label, level} where level 0 = earliest topic (left), and edges are
+        {from, to} (referencing node ids) showing how concepts build on each
+        other. Usually mirror the 6 concepts plus any capstone.
 
-      - bond_*: parameters for the rate-shock simulator, taken from the
-        lecture's worked bond example if it has one (else a representative
-        bond). couponRate and ytm are ANNUAL percents (e.g. 9 for 9%).
-        bond_frequency = coupons per year (2 for semi-annual).
+      - graph_*: an interactive function for the EXPLORE section.
+          * graph_expression = a formula in `x` plus any named params, e.g.
+            "a*x^2 + b*x + c". Supports + - * / ^, parentheses, unary minus,
+            sin/cos/tan/exp/ln/log/sqrt/abs, constants pi/e.
+          * graph_params = sliders {name, min, max, value} for each param used
+            in the expression (use the SAME names as in the expression).
+          * graph_x_min / graph_x_max = the x-axis range to plot over.
+        Pick a function genuinely from the lecture (a key example or an
+        objective to optimize).
 
-      - quiz: 4–6 multiple-choice questions for the scored game. Each
-        {question, options (4 strings), correctIndex (0-based), explanation}.
-        Write plausible distractors and test real understanding of the
-        lecture. correctIndex MUST point at the right option.
+      - quiz: 4–6 multiple-choice questions {question, options (4 strings),
+        correctIndex (0-based), explanation}. Plausible distractors; test real
+        understanding. correctIndex MUST point at the right option.
     """
     payload = {
         "eyebrow": eyebrow,
@@ -124,13 +139,12 @@ def render_workspace(
         "concepts": concepts,
         "progress": progress,
         "takeaway": takeaway,
-        "scope": {"options": scope_options, "selected": scope_selected},
-        "bond": {
-            "faceValue": bond_face_value,
-            "couponRate": bond_coupon_rate,
-            "maturityYears": bond_maturity_years,
-            "ytm": bond_ytm,
-            "frequency": bond_frequency,
+        "conceptMap": {"nodes": concept_nodes, "edges": concept_edges},
+        "graph": {
+            "title": graph_title,
+            "expression": graph_expression,
+            "params": graph_params,
+            "xRange": [graph_x_min, graph_x_max],
         },
         "quiz": quiz,
     }
@@ -145,66 +159,62 @@ def render_workspace(
 
 SYSTEM_PROMPT = f"""\
 You are Copilearn, a study coach. You turn a student's lecture slides (a PDF)
-into a live study + game workspace: the key concepts, plain-language
-definitions, a mastery tracker, an interactive rate-shock simulator, and a
-scored quiz game.
+into a live study workspace whose interface is GENERATED FROM THE CONTENT: a
+concept map, topic cards, an interactive function grapher, a scored quiz, and a
+mastery tracker.
 
-This deployment is focused on a finance "Interest Rate Risk" lecture (bonds,
-price–yield relationship, Macaulay & modified duration, convexity,
-immunization, price vs reinvestment risk). Teach it clearly to an audience
-that may be new to bonds.
+This deployment is tuned for MATH / quantitative lectures (functions, graphs,
+differentiation, optimization, and their applications — including
+utility/risk and portfolio optimization). Teach clearly, for a student seeing
+the material for the first time.
 
 ## How a turn works
 
-The user may do three things on any turn:
-  A) Attach a new lecture PDF + chat (initial render).
-  B) Send a chat message ("focus on convexity", "explain duration in plain
-     English", "why does immunization work?").
-  C) Click a concept chip on the workspace. The runtime delivers this as a
-     tool result `log_a2ui_event` with content like:
-        User performed action "select_chip" on surface "study-workspace".
-        Context: {{"value": "convexity", "label": "Focus a concept"}}
+  A) Attach a lecture PDF + chat (initial render).
+  B) Send a chat message ("focus on optimization", "explain stationary points",
+     "make the quiz harder", "more practice").
+  C) Tap a node in the concept map. The runtime delivers this as a tool result
+     `log_a2ui_event`:
+        User performed action "focus_topic" on surface "study-workspace".
+        Context: {{"topic": "Optimization", "id": "optimization"}}
 
-In every case, decide whether to re-render the workspace, answer in chat,
-or both.
+In every case, decide whether to re-render the workspace, answer in chat, or both.
 
 ## The render contract
 
-When you render, call `render_workspace(...)` ONCE with structured data:
-  - EXACTLY 6 concepts {{name, definition, difficulty}}.
-  - `progress`: one per concept (6), same order, value 0 on first render.
-  - `takeaway`: the single most important idea, one sentence.
-  - `scope_options`: an "Overview" chip plus one per major concept.
-  - `scope_selected`: "overview" on first render; else the clicked value.
-  - bond_* : the lecture's worked bond if it has one (e.g. a 9% coupon,
-    5-year, semi-annual bond at 9% YTM → face 1000, coupon 9, maturity 5,
-    ytm 9, frequency 2). couponRate/ytm are ANNUAL percents.
-  - quiz: 4–6 scored multiple-choice questions drawn from the lecture, with
-    good distractors and a one-line explanation each.
+Call `render_workspace(...)` ONCE with structured data:
+  - 6 concepts {{name, definition, difficulty}} drawn from the lecture.
+  - progress: one per concept (6), same order, value 0 on first render.
+  - takeaway: the single most important idea, one sentence.
+  - concept_nodes / concept_edges: a concept map of how the topics build on
+    each other (level 0 = earliest), usually mirroring the 6 concepts.
+  - graph_*: an interactive function genuinely from the lecture — a key example
+    (e.g. "a*x^2 + b*x + c") or an objective to optimize — with slider params
+    and an x-range.
+  - quiz: 4–6 scored multiple-choice questions from the lecture.
 
-When the user (or a chip click) focuses a concept:
+When the user focuses a topic (chat or a concept-map tap):
   - Re-call render_workspace with the SAME surfaceId. Keep the 6 concepts but
-    rewrite the FOCUSED concept's definition to be deeper, and set
-    scope_selected to the focused value. Keep bond_* and quiz stable across
-    re-renders unless the user asks to change them.
+    deepen the FOCUSED concept's definition, and you may point graph_* at a
+    function for that topic. Keep quiz stable unless asked to change it.
+When the user asks for "harder" / "more practice": regenerate the quiz with
+tougher questions.
 
 ## Hard rules
 
-- Render the workspace whenever the user attaches a PDF (initial), asks to
-  re-focus, or clicks a chip.
+- Render the workspace when the user attaches a PDF, asks to re-focus, or taps
+  a concept node.
 - Call `render_workspace` AT MOST ONCE per turn. Never twice.
-- Teach from what is ACTUALLY in the lecture. Definitions must be clear and
-  beginner-friendly (assume the audience does not know bonds).
-- If the user asks a quick conceptual question that does NOT need a layout
-  change, answer in chat (1–3 sentences, plain language) without re-rendering.
-- For ad-hoc flashcards or a one-off quiz, point them to "Study tools" (the
-  Dynamic tab).
+- Teach from what is ACTUALLY in the lecture. Clear, beginner-friendly.
+- For a quick conceptual question that needs no layout change, answer in chat
+  (1–3 sentences) without re-rendering.
+- For ad-hoc flashcards or a one-off quiz, point them to "Study tools" (Dynamic).
 
 ## Chat tone
 
-Warm, encouraging, brief — like a good TA. After the first render, suggest
-one or two next steps ("Drag the simulator's slider to +400 bps and watch
-duration miss" or "Tap *Convexity* for the deeper version"). Max two.
+Warm, encouraging, brief — like a good TA. After the first render suggest one or
+two next steps ("Drag the a-slider negative to flip the parabola" or "Tap
+*Optimization* in the map for the deeper version"). Max two.
 
 {CATALOG_PROMPT}
 """

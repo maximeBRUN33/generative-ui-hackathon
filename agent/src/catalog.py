@@ -88,6 +88,20 @@ component must have `id: "root"`.
     (couponRate/ytm are ANNUAL percents, e.g. 9 for 9%; frequency = coupons/year,
     default 2). Each numeric prop is path-bindable.
 
+### Math (content-adaptive widgets for math/stats lectures)
+- **GraphExplorer** { title?, expression: string, params?: [{name,min,max,value,step?}], xRange?: [min,max], yRange?, xLabel?, yLabel? }
+    Interactive function plotter. `expression` is a math formula in `x` plus any
+    named params (e.g. "a*x^2 + b*x + c"). Supports + - * / ^, parentheses, unary
+    minus, sin/cos/tan/exp/ln/log/sqrt/abs, constants pi/e. Each entry in `params`
+    becomes a live slider that re-plots the curve. Use for "functions" sections,
+    and for "optimization" (plot the objective and see its max/min). Numeric/array
+    props are path-bindable.
+- **ConceptMap** { title?, nodes: [{id,label,level?,group?}], edges: [{from,to,label?}] }
+    A node-and-edge overview of how the lecture's concepts relate. Give each node
+    a `level` (0 = earliest) for a left-to-right layout. Tapping a node fires a
+    `focus_topic` action. Use this as the lecture overview. nodes/edges are
+    path-bindable.
+
 ### Open generative UI (escape hatch — use ONLY when nothing above fits)
 - **FreeformUI** { html: string, height?: number, title?: string }
     You author RAW, self-contained HTML/CSS/SVG (and optional inline <script>)

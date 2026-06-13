@@ -37,8 +37,8 @@ from src.offline_sample import OFFLINE_WORKSPACE_ARGS
 
 _TOOL_NAME = "render_workspace"
 _FINAL_TEXT = (
-    "Here's your Interest Rate Risk workspace — explore the concepts, drag the "
-    "rate-shock simulator, and play the quiz."
+    "Here's your study workspace — explore the concept map, drag the function "
+    "grapher, and play the quiz."
 )
 
 

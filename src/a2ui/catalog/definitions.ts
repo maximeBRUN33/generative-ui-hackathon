@@ -385,6 +385,69 @@ export const definitions = {
       title: stringOrPath.optional(),
     }),
   },
+
+  // ── Math widgets (content-adaptive, v2) ─────────────────────────────────
+  GraphExplorer: {
+    description:
+      "Interactive function plotter for math lectures. Supply a math " +
+      "`expression` in x (with optional named params); the student drags " +
+      "parameter sliders and the curve updates live. Use for 'functions' / " +
+      "'optimization' sections. Expressions support + - * / ^, parentheses, " +
+      "unary minus, functions sin/cos/tan/exp/ln/log/sqrt/abs, constants " +
+      "pi/e, the variable x, and any named params (e.g. 'a*x^2 + b*x + c').",
+    props: z.object({
+      title: stringOrPath.optional(),
+      expression: stringOrPath,
+      params: z.union([
+        z.array(
+          z.object({
+            name: z.string(),
+            min: z.number(),
+            max: z.number(),
+            value: z.number(),
+            step: z.number().optional(),
+          }),
+        ),
+        z.object({ path: z.string() }),
+      ]).optional(),
+      xRange: z.union([z.array(z.number()), z.object({ path: z.string() })]).optional(),
+      yRange: z.union([z.array(z.number()), z.object({ path: z.string() })]).optional(),
+      xLabel: stringOrPath.optional(),
+      yLabel: stringOrPath.optional(),
+    }),
+  },
+
+  ConceptMap: {
+    description:
+      "A node-and-edge map of how a lecture's concepts relate — the study " +
+      "overview. Give each node a `level` (0 = earliest) for a clean " +
+      "left-to-right layout. Clicking a node fires a 'focus_topic' action so " +
+      "the agent can zoom into that concept. `nodes`/`edges` are path-bindable.",
+    props: z.object({
+      title: stringOrPath.optional(),
+      nodes: z.union([
+        z.array(
+          z.object({
+            id: z.string(),
+            label: z.string(),
+            level: z.number().optional(),
+            group: z.string().optional(),
+          }),
+        ),
+        z.object({ path: z.string() }),
+      ]),
+      edges: z.union([
+        z.array(
+          z.object({
+            from: z.string(),
+            to: z.string(),
+            label: z.string().optional(),
+          }),
+        ),
+        z.object({ path: z.string() }),
+      ]),
+    }),
+  },
 };
 
 export type Definitions = typeof definitions;

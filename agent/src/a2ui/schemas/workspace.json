@@ -5,20 +5,16 @@
     "gap": "lg",
     "children": [
       "header-card",
-      "concept-chips",
+      "conceptmap-section",
       "concept-section",
-      "simulator-section",
+      "graph-section",
       "quiz-section",
       "progress-section",
       "takeaway-callout"
     ]
   },
 
-  {
-    "id": "header-card",
-    "component": "Card",
-    "child": "header-stack"
-  },
+  { "id": "header-card", "component": "Card", "child": "header-stack" },
   {
     "id": "header-stack",
     "component": "Stack",
@@ -30,17 +26,23 @@
   { "id": "header-text", "component": "Text", "tone": "muted", "text": { "path": "/subtitle" } },
 
   {
-    "id": "concept-chips",
-    "component": "ChoiceChips",
-    "label": "Focus a concept",
-    "value": { "path": "/scope/selected" },
-    "options": { "path": "/scope/options" }
+    "id": "conceptmap-section",
+    "component": "Section",
+    "eyebrow": "OVERVIEW",
+    "title": "How it fits together",
+    "child": "conceptmap"
+  },
+  {
+    "id": "conceptmap",
+    "component": "ConceptMap",
+    "nodes": { "path": "/conceptMap/nodes" },
+    "edges": { "path": "/conceptMap/edges" }
   },
 
   {
     "id": "concept-section",
     "component": "Section",
-    "eyebrow": "LECTURE 7",
+    "eyebrow": "LECTURE 3",
     "title": "Key concepts",
     "child": "concept-grid"
   },
@@ -89,36 +91,29 @@
   { "id": "concept-6-badge", "component": "Badge", "tone": "info", "label": { "path": "/concepts/5/difficulty" } },
 
   {
-    "id": "simulator-section",
+    "id": "graph-section",
     "component": "Section",
-    "eyebrow": "PLAY",
-    "title": "Feel the risk: rate-shock simulator",
-    "child": "simulator"
+    "eyebrow": "EXPLORE",
+    "title": "Play with a function",
+    "child": "graph"
   },
   {
-    "id": "simulator",
-    "component": "RateShockSimulator",
-    "title": "9% coupon bond, 5-year",
-    "faceValue": { "path": "/bond/faceValue" },
-    "couponRate": { "path": "/bond/couponRate" },
-    "maturityYears": { "path": "/bond/maturityYears" },
-    "ytm": { "path": "/bond/ytm" },
-    "frequency": { "path": "/bond/frequency" }
+    "id": "graph",
+    "component": "GraphExplorer",
+    "title": { "path": "/graph/title" },
+    "expression": { "path": "/graph/expression" },
+    "params": { "path": "/graph/params" },
+    "xRange": { "path": "/graph/xRange" }
   },
 
   {
     "id": "quiz-section",
     "component": "Section",
-    "eyebrow": "PLAY",
+    "eyebrow": "PRACTICE",
     "title": "Test yourself",
     "child": "quizgame"
   },
-  {
-    "id": "quizgame",
-    "component": "QuizGame",
-    "title": "Interest Rate Risk",
-    "questions": { "path": "/quiz" }
-  },
+  { "id": "quizgame", "component": "QuizGame", "title": "Lecture 3", "questions": { "path": "/quiz" } },
 
   {
     "id": "progress-section",
