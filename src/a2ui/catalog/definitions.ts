@@ -290,6 +290,7 @@ export const definitions = {
       front: stringOrPath,
       back: stringOrPath,
       hint: stringOrPath.optional(),
+      emoji: stringOrPath.optional(),
     }),
   },
 

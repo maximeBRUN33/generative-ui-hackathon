@@ -68,9 +68,12 @@ component must have `id: "root"`.
 - **ChoiceChips** { label, options: [{label,value}], value: {path}, multi?: bool }
 
 ### Study (Copilearn — use for learning surfaces)
-- **Flashcard** { front: string, back: string, hint?: string }
-    A click-to-flip study card. `front` = term/prompt, `back` = definition/answer.
-    Put several in a Stack or Grid (columns 2) to make a deck.
+- **Flashcard** { front: string, back: string, hint?: string, emoji?: string }
+    A click-to-flip study card — front shows an emoji + a short term; tap to flip
+    to the `back`. Keep `back` ELI5: one plain sentence a 12-year-old gets, no
+    jargon. `emoji` is one emoji that hints the idea. Put several in a Grid
+    (columns 2-3) to make a simple, tappable deck — prefer this over dense text
+    cards for explaining concepts.
 - **QuizQuestion** { question: string, options: [string], correctIndex: int (0-based), explanation?: string }
     One multiple-choice practice question with instant right/wrong feedback.
     `correctIndex` points at the right option; `explanation` shows after answering.

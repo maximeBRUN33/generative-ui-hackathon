@@ -42,8 +42,8 @@
   {
     "id": "concept-section",
     "component": "Section",
-    "eyebrow": "TOPICS",
-    "title": "Key concepts",
+    "eyebrow": "TAP A CARD TO FLIP",
+    "title": "The big ideas, simply",
     "child": "concept-grid"
   },
   {
@@ -54,41 +54,12 @@
     "children": ["concept-1", "concept-2", "concept-3", "concept-4", "concept-5", "concept-6"]
   },
 
-  { "id": "concept-1", "component": "Card", "child": "concept-1-stack" },
-  { "id": "concept-1-stack", "component": "Stack", "gap": "sm", "children": ["concept-1-name", "concept-1-def", "concept-1-badge"] },
-  { "id": "concept-1-name", "component": "Heading", "level": "3", "text": { "path": "/concepts/0/name" } },
-  { "id": "concept-1-def", "component": "Text", "tone": "muted", "size": "sm", "text": { "path": "/concepts/0/definition" } },
-  { "id": "concept-1-badge", "component": "Badge", "tone": "info", "label": { "path": "/concepts/0/difficulty" } },
-
-  { "id": "concept-2", "component": "Card", "child": "concept-2-stack" },
-  { "id": "concept-2-stack", "component": "Stack", "gap": "sm", "children": ["concept-2-name", "concept-2-def", "concept-2-badge"] },
-  { "id": "concept-2-name", "component": "Heading", "level": "3", "text": { "path": "/concepts/1/name" } },
-  { "id": "concept-2-def", "component": "Text", "tone": "muted", "size": "sm", "text": { "path": "/concepts/1/definition" } },
-  { "id": "concept-2-badge", "component": "Badge", "tone": "info", "label": { "path": "/concepts/1/difficulty" } },
-
-  { "id": "concept-3", "component": "Card", "child": "concept-3-stack" },
-  { "id": "concept-3-stack", "component": "Stack", "gap": "sm", "children": ["concept-3-name", "concept-3-def", "concept-3-badge"] },
-  { "id": "concept-3-name", "component": "Heading", "level": "3", "text": { "path": "/concepts/2/name" } },
-  { "id": "concept-3-def", "component": "Text", "tone": "muted", "size": "sm", "text": { "path": "/concepts/2/definition" } },
-  { "id": "concept-3-badge", "component": "Badge", "tone": "info", "label": { "path": "/concepts/2/difficulty" } },
-
-  { "id": "concept-4", "component": "Card", "child": "concept-4-stack" },
-  { "id": "concept-4-stack", "component": "Stack", "gap": "sm", "children": ["concept-4-name", "concept-4-def", "concept-4-badge"] },
-  { "id": "concept-4-name", "component": "Heading", "level": "3", "text": { "path": "/concepts/3/name" } },
-  { "id": "concept-4-def", "component": "Text", "tone": "muted", "size": "sm", "text": { "path": "/concepts/3/definition" } },
-  { "id": "concept-4-badge", "component": "Badge", "tone": "info", "label": { "path": "/concepts/3/difficulty" } },
-
-  { "id": "concept-5", "component": "Card", "child": "concept-5-stack" },
-  { "id": "concept-5-stack", "component": "Stack", "gap": "sm", "children": ["concept-5-name", "concept-5-def", "concept-5-badge"] },
-  { "id": "concept-5-name", "component": "Heading", "level": "3", "text": { "path": "/concepts/4/name" } },
-  { "id": "concept-5-def", "component": "Text", "tone": "muted", "size": "sm", "text": { "path": "/concepts/4/definition" } },
-  { "id": "concept-5-badge", "component": "Badge", "tone": "info", "label": { "path": "/concepts/4/difficulty" } },
-
-  { "id": "concept-6", "component": "Card", "child": "concept-6-stack" },
-  { "id": "concept-6-stack", "component": "Stack", "gap": "sm", "children": ["concept-6-name", "concept-6-def", "concept-6-badge"] },
-  { "id": "concept-6-name", "component": "Heading", "level": "3", "text": { "path": "/concepts/5/name" } },
-  { "id": "concept-6-def", "component": "Text", "tone": "muted", "size": "sm", "text": { "path": "/concepts/5/definition" } },
-  { "id": "concept-6-badge", "component": "Badge", "tone": "info", "label": { "path": "/concepts/5/difficulty" } },
+  { "id": "concept-1", "component": "Flashcard", "emoji": { "path": "/concepts/0/emoji" }, "front": { "path": "/concepts/0/name" }, "back": { "path": "/concepts/0/definition" } },
+  { "id": "concept-2", "component": "Flashcard", "emoji": { "path": "/concepts/1/emoji" }, "front": { "path": "/concepts/1/name" }, "back": { "path": "/concepts/1/definition" } },
+  { "id": "concept-3", "component": "Flashcard", "emoji": { "path": "/concepts/2/emoji" }, "front": { "path": "/concepts/2/name" }, "back": { "path": "/concepts/2/definition" } },
+  { "id": "concept-4", "component": "Flashcard", "emoji": { "path": "/concepts/3/emoji" }, "front": { "path": "/concepts/3/name" }, "back": { "path": "/concepts/3/definition" } },
+  { "id": "concept-5", "component": "Flashcard", "emoji": { "path": "/concepts/4/emoji" }, "front": { "path": "/concepts/4/name" }, "back": { "path": "/concepts/4/definition" } },
+  { "id": "concept-6", "component": "Flashcard", "emoji": { "path": "/concepts/5/emoji" }, "front": { "path": "/concepts/5/name" }, "back": { "path": "/concepts/5/definition" } },
 
   {
     "id": "graph-section",

@@ -1059,33 +1059,31 @@ const ChoiceChips = ({
 
 const Flashcard = ({
   props,
-}: RendererProps<{ front: string; back: string; hint?: string }>) => {
+}: RendererProps<{ front: string; back: string; hint?: string; emoji?: string }>) => {
   const [flipped, setFlipped] = useState(false);
   return (
     <button
       type="button"
       onClick={() => setFlipped((f) => !f)}
-      className="group relative w-full min-h-[150px] text-left rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-5 transition hover:border-[var(--ink-2)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+      className="group relative w-full min-h-[170px] text-center flex flex-col items-center justify-center gap-2 rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-5 transition hover:border-[var(--ink-2)]"
     >
-      <span className="mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)]">
-        {flipped ? "Answer" : "Term"} · tap to flip
-      </span>
+      {props.emoji && (
+        <span className="text-[40px] leading-none" aria-hidden>
+          {props.emoji}
+        </span>
+      )}
       {flipped ? (
-        <p className="mt-3 text-[15px] leading-snug text-[var(--ink)]">
+        <p className="text-[16px] leading-snug text-[var(--ink)]">
           {props.back}
         </p>
       ) : (
-        <>
-          <p className="mt-3 text-[17px] font-semibold leading-snug text-[var(--ink)]">
-            {props.front}
-          </p>
-          {props.hint && (
-            <p className="mt-2 text-[12.5px] italic text-[var(--ink-2)]">
-              Hint: {props.hint}
-            </p>
-          )}
-        </>
+        <p className="text-[18px] font-semibold leading-snug text-[var(--ink)]">
+          {props.front}
+        </p>
       )}
+      <span className="mt-1 mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)]">
+        {flipped ? "↻ tap to flip back" : "tap to learn ↦"}
+      </span>
     </button>
   );
 };

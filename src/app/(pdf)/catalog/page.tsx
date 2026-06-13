@@ -583,9 +583,9 @@ const EXAMPLES: Example[] = [
         {
           id: "root",
           component: "Flashcard",
-          front: "Modified duration",
-          back: "Macaulay duration ÷ (1 + y). It estimates a bond's % price change for a small yield move: ΔB/B ≈ −D* × Δy.",
-          hint: "Always a bit smaller than Macaulay duration.",
+          emoji: "⏳",
+          front: "Duration",
+          back: "How long, on average, until you get your money back — longer means the price swings more when rates move.",
         },
       ],
     },

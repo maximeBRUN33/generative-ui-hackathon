@@ -44,6 +44,7 @@ class Concept(TypedDict):
     name: str
     definition: str
     difficulty: str
+    emoji: str
 
 
 class Progress(TypedDict):
@@ -100,10 +101,17 @@ def render_workspace(
     tracker. Pass data INLINE. Call ONCE per turn.
 
     Required shapes:
-      - concepts: EXACTLY 6 cards. Each {name, definition, difficulty}.
-          * `name`       = the concept/term, short (<= 5 words).
-          * `definition` = a plain-language explanation in 1–2 sentences.
+      - concepts: EXACTLY 6 flip-cards. Each {name, definition, difficulty, emoji}.
+          * `name`       = the concept/term, short (<= 4 words). Shown on the
+                           card front.
+          * `definition` = ELI5. Explain it like the reader is a smart 12-year-old
+                           who has never seen the topic: ONE short sentence, plain
+                           words, ideally a tiny everyday analogy. NO jargon, NO
+                           formulas. This is the card back. (e.g. for duration:
+                           "How long, on average, until you get your money back —
+                           longer means the price swings more when rates move.")
           * `difficulty` = ONE word: "Core", "Intermediate", or "Advanced".
+          * `emoji`      = ONE emoji that visually hints the idea (e.g. 📉 ⏳ 🎢 🛡️).
         If the lecture has fewer than 6 headline concepts, split the richest
         ones so you always return exactly 6.
 
@@ -128,9 +136,12 @@ def render_workspace(
         Pick a function genuinely from the lecture (a key example or an
         objective to optimize).
 
-      - quiz: 4–6 multiple-choice questions {question, options (4 strings),
-        correctIndex (0-based), explanation}. Plausible distractors; test real
-        understanding. correctIndex MUST point at the right option.
+      - quiz: 6–8 multiple-choice questions {question, options (4 strings),
+        correctIndex (0-based), explanation}. Make it feel like real exam prep,
+        not just definition recall: mix EASY warm-ups, APPLICATION questions
+        ("given X, what happens to Y?"), and 1–2 HARDER ones that combine
+        concepts or use small numbers from the lecture. Plausible distractors;
+        a one-line explanation each. correctIndex MUST point at the right option.
     """
     payload = {
         "eyebrow": eyebrow,
